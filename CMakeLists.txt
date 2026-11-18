@@ -23,6 +23,8 @@ qt_add_qml_module(appTangens
     SOURCES
         WorkspaceModel.h
         WorkspaceModel.cpp
+        TextFormatter.h
+        TextFormatter.cpp
 )
 
 set_target_properties(appTangens PROPERTIES
