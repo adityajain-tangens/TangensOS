@@ -15,6 +15,10 @@ WorkspaceModel::WorkspaceModel(QObject *parent)
         QRect(0, 9, 4, 6),
     };
     m_atStart = m_components;
+
+    // What sits inside each component, in the same order as above: the name of a
+    // ComponentItem's .qml file, like "TextFieldItem". "" leaves it empty.
+    m_items = { "TextFieldItem", "", "", "", "" };
 }
 
 int WorkspaceModel::rowCount(const QModelIndex &parent) const
@@ -30,6 +34,7 @@ QVariant WorkspaceModel::data(const QModelIndex &index, int role) const
     case RowRole: return component.y();
     case ColsRole: return component.width();
     case RowsRole: return component.height();
+    case ItemRole: return m_items.at(index.row());
     }
     return {};
 }
@@ -37,7 +42,7 @@ QVariant WorkspaceModel::data(const QModelIndex &index, int role) const
 // The names QML uses for each value
 QHash<int, QByteArray> WorkspaceModel::roleNames() const
 {
-    return { { ColRole, "col" }, { RowRole, "row" }, { ColsRole, "cols" }, { RowsRole, "rows" } };
+    return { { ColRole, "col" }, { RowRole, "row" }, { ColsRole, "cols" }, { RowsRole, "rows" }, { ItemRole, "item" } };
 }
 
 void WorkspaceModel::startMove()

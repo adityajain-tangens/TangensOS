@@ -12,7 +12,7 @@ class WorkspaceModel : public QAbstractListModel
     QML_ELEMENT
 
 public:
-    enum Role { ColRole = Qt::UserRole, RowRole, ColsRole, RowsRole };
+    enum Role { ColRole = Qt::UserRole, RowRole, ColsRole, RowsRole, ItemRole };
 
     explicit WorkspaceModel(QObject *parent = nullptr);
 
@@ -33,4 +33,6 @@ private:
     QList<QRect> m_components;
     // Where every component was when the drag started
     QList<QRect> m_atStart;
+    // What sits inside each component, in the same order as m_components
+    QList<QString> m_items;
 };

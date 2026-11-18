@@ -19,6 +19,7 @@ qt_add_qml_module(appTangens
         Main.qml
         Workspace.qml
         ComponentFrame.qml
+        TextFieldItem.qml
     SOURCES
         WorkspaceModel.h
         WorkspaceModel.cpp

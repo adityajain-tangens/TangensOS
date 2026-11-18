@@ -1,7 +1,7 @@
 import QtQuick
 
 // The frame every component sits in. Drag its top strip to move it.
-// For now the inside is a coloured box that shows where it sits on the grid.
+// What sits inside is a ComponentItem, named in the model (see WorkspaceModel.cpp).
 Rectangle {
     id: frame
 
@@ -11,6 +11,7 @@ Rectangle {
     required property int row
     required property int cols
     required property int rows
+    required property string item
 
     // True while the top strip is being dragged
     readonly property bool dragging: grab.active
@@ -36,8 +37,17 @@ Rectangle {
         }
     }
 
-    // A different pale colour per component, so they're easy to tell apart
+    // What's inside: loads the file the model names, like TextFieldItem.qml
+    Loader {
+        anchors.fill: parent
+        anchors.margins: 8
+        anchors.topMargin: 36
+        source: frame.item === "" ? "" : frame.item + ".qml"
+    }
+
+    // When it has nothing inside, a different pale colour per component, so they're easy to tell apart
     Rectangle {
+        visible: frame.item === ""
         anchors.fill: parent
         anchors.margins: 8
         anchors.topMargin: 36
