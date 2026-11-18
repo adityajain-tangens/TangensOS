@@ -39,6 +39,20 @@ Flickable {
             components.moveComponent(frame.index, landingCol, landingRow)
     }
 
+    // While a corner is dragged: put that corner on the grid line nearest the pointer.
+    // The other two edges stay where they are.
+    function followResize(frame, atLeft, atTop, pointer) {
+        const spot = componentLayer.mapFromItem(null, pointer.x, pointer.y)
+        const colLine = Math.round((spot.x - padding + gap / 2) / (columnWidth + gap))
+        const rowLine = Math.round((spot.y - padding + gap / 2) / (rowHeight + gap))
+
+        const left = atLeft ? colLine : frame.col
+        const right = atLeft ? frame.col + frame.cols : colLine
+        const top = atTop ? rowLine : frame.row
+        const bottom = atTop ? frame.row + frame.rows : rowLine
+        components.resizeComponent(frame.index, left, top, right, bottom)
+    }
+
     // Scrolls down to the lowest component, plus a few empty rows
     contentHeight: componentLayer.childrenRect.y + componentLayer.childrenRect.height + spareRows * (rowHeight + gap) + padding
     flickableDirection: Flickable.VerticalFlick
@@ -110,7 +124,7 @@ Flickable {
 
                 onDraggingChanged: {
                     if (dragging) {
-                        workspace.components.startMove()
+                        workspace.components.startChange()
                         workspace.movingFrame = frame
                     } else {
                         // Dropped: follow its grid cell again, which glides it into place
@@ -119,6 +133,8 @@ Flickable {
                         workspace.movingFrame = null
                     }
                 }
+                onResizeStarted: workspace.components.startChange()
+                onResizeMoved: (atLeft, atTop, pointer) => workspace.followResize(frame, atLeft, atTop, pointer)
                 onXChanged: if (dragging) workspace.followDrag(frame)
                 onYChanged: if (dragging) workspace.followDrag(frame)
             }

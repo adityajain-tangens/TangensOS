@@ -20,14 +20,19 @@ public:
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
 
-    // Called from QML: when a drag starts, and each time the dragged component is over a new cell
-    Q_INVOKABLE void startMove();
+    // Called from QML: when a move or resize starts, and each time it reaches a new cell
+    Q_INVOKABLE void startChange();
     Q_INVOKABLE void moveComponent(int component, int col, int row);
+    Q_INVOKABLE void resizeComponent(int component, int left, int top, int right, int bottom);
 
 private:
+    void place(int component, const QRect &moved);
     QRect nearestFreeSpot(const QRect &component, const QList<QRect> &taken) const;
 
     static constexpr int columns = 12;
+    // The smallest a component can be
+    static constexpr int minCols = 2;
+    static constexpr int minRows = 2;
 
     // Each component as a rectangle of cells: x = col, y = row, width = cols, height = rows
     QList<QRect> m_components;

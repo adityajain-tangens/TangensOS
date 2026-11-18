@@ -45,20 +45,46 @@ QHash<int, QByteArray> WorkspaceModel::roleNames() const
     return { { ColRole, "col" }, { RowRole, "row" }, { ColsRole, "cols" }, { RowsRole, "rows" }, { ItemRole, "item" } };
 }
 
-void WorkspaceModel::startMove()
+void WorkspaceModel::startChange()
 {
     m_atStart = m_components;
 }
 
-// Puts one component at a new cell. Any component it now covers moves to the nearest free spot.
-// Always works from where things were when the drag started, so a pushed component
-// goes back if the dragged one moves away again.
+// Moves a component to a new cell, keeping its size
 void WorkspaceModel::moveComponent(int component, int col, int row)
 {
     QRect moved = m_atStart.at(component);
     moved.moveTo(qBound(0, col, columns - moved.width()), qMax(0, row));
+    place(component, moved);
+}
 
-    // First everything that stays: the moved component, and every component it doesn't cover
+// Resizes a component by moving its edges. Edges are grid lines: a component at column 6
+// that's 3 columns wide runs from line 6 to line 9. Only the edges that moved are changed.
+void WorkspaceModel::resizeComponent(int component, int left, int top, int right, int bottom)
+{
+    const QRect start = m_atStart.at(component);
+    const int startRight = start.x() + start.width();
+    const int startBottom = start.y() + start.height();
+
+    // Keep each edge that moved inside the workspace, and at least the minimum size from the opposite edge
+    if (left != start.x())
+        left = qBound(0, left, startRight - minCols);
+    if (right != startRight)
+        right = qBound(start.x() + minCols, right, columns);
+    if (top != start.y())
+        top = qBound(0, top, startBottom - minRows);
+    if (bottom != startBottom)
+        bottom = qMax(start.y() + minRows, bottom);
+
+    place(component, QRect(left, top, right - left, bottom - top));
+}
+
+// Puts one component at a new rectangle of cells. Any component it now covers moves to the
+// nearest free spot. Always works from where things were when the change started, so a pushed
+// component goes back if the changed one moves away again.
+void WorkspaceModel::place(int component, const QRect &moved)
+{
+    // First everything that stays: the changed component, and every component it doesn't cover
     QList<QRect> result = m_atStart;
     result[component] = moved;
     QList<QRect> taken { moved };
@@ -76,7 +102,7 @@ void WorkspaceModel::moveComponent(int component, int col, int row)
     }
 
     m_components = result;
-    emit dataChanged(index(0), index(m_components.size() - 1), { ColRole, RowRole });
+    emit dataChanged(index(0), index(m_components.size() - 1), { ColRole, RowRole, ColsRole, RowsRole });
 }
 
 // The free spot of the same size that's closest to where the component is now
