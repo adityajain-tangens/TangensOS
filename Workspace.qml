@@ -94,29 +94,36 @@ Flickable {
         border.width: 2
     }
 
-    // Dropping an image file on an empty spot adds a component that shows it
+    // Dropping an image or video file on an empty spot adds a component that shows it
     DropArea {
         width: workspace.width
         height: Math.max(workspace.height, workspace.contentHeight)
 
-        readonly property var imageTypes: ["png", "jpg", "jpeg", "gif", "bmp", "svg", "tif", "tiff", "webp", "ico"]
+        // Which item shows each kind of file, by the end of its name
+        readonly property var itemFor: ({
+            png: "ImageItem", jpg: "ImageItem", jpeg: "ImageItem", gif: "ImageItem", bmp: "ImageItem",
+            svg: "ImageItem", tif: "ImageItem", tiff: "ImageItem", webp: "ImageItem", ico: "ImageItem",
+            mp4: "VideoItem", mov: "VideoItem", m4v: "VideoItem", webm: "VideoItem", mkv: "VideoItem", avi: "VideoItem"
+        })
 
-        // The first dropped file that's an image, or "" if none is
-        function imageIn(urls) {
+        // The first dropped file the workspace can show, or "" if there's none
+        function firstShowable(urls) {
             for (const url of urls) {
                 const name = url.toString()
-                if (imageTypes.includes(name.split(".").pop().toLowerCase()))
+                if (itemFor[name.split(".").pop().toLowerCase()])
                     return name
             }
             return ""
         }
 
-        onEntered: (drag) => drag.accepted = imageIn(drag.urls) !== ""
+        onEntered: (drag) => drag.accepted = firstShowable(drag.urls) !== ""
         onDropped: (drop) => {
+            const file = firstShowable(drop.urls)
+            const item = itemFor[file.split(".").pop().toLowerCase()]
             const col = Math.floor((drop.x - workspace.padding) / (workspace.columnWidth + workspace.gap))
             const row = Math.floor((drop.y - workspace.padding) / (workspace.rowHeight + workspace.gap))
-            // New images are 4 columns wide and 6 rows tall
-            if (workspace.components.addComponent("ImageItem", imageIn(drop.urls), Math.max(0, Math.min(workspace.columns - 1, col)), Math.max(0, row), 4, 6))
+            // New components are 4 columns wide and 6 rows tall
+            if (workspace.components.addComponent(item, file, Math.max(0, Math.min(workspace.columns - 1, col)), Math.max(0, row), 4, 6))
                 drop.accept(Qt.CopyAction)
         }
     }
