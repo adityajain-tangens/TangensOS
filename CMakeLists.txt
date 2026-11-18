@@ -4,7 +4,7 @@ project(Tangens VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Quick Multimedia)
+find_package(Qt6 REQUIRED COMPONENTS Quick Multimedia PdfQuick)
 
 qt_standard_project_setup(REQUIRES 6.10)
 
@@ -22,6 +22,7 @@ qt_add_qml_module(appTangens
         TextFieldItem.qml
         ImageItem.qml
         VideoItem.qml
+        PDFItem.qml
     SOURCES
         WorkspaceModel.h
         WorkspaceModel.cpp
@@ -35,5 +36,5 @@ set_target_properties(appTangens PROPERTIES
 )
 
 target_link_libraries(appTangens
-    PRIVATE Qt6::Quick Qt6::Multimedia
+    PRIVATE Qt6::Quick Qt6::Multimedia Qt6::PdfQuick
 )

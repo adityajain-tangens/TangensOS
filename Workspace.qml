@@ -94,7 +94,7 @@ Flickable {
         border.width: 2
     }
 
-    // Dropping an image or video file on an empty spot adds a component that shows it
+    // Dropping an image, video or PDF file on an empty spot adds a component that shows it
     DropArea {
         width: workspace.width
         height: Math.max(workspace.height, workspace.contentHeight)
@@ -103,7 +103,8 @@ Flickable {
         readonly property var itemFor: ({
             png: "ImageItem", jpg: "ImageItem", jpeg: "ImageItem", gif: "ImageItem", bmp: "ImageItem",
             svg: "ImageItem", tif: "ImageItem", tiff: "ImageItem", webp: "ImageItem", ico: "ImageItem",
-            mp4: "VideoItem", mov: "VideoItem", m4v: "VideoItem", webm: "VideoItem", mkv: "VideoItem", avi: "VideoItem"
+            mp4: "VideoItem", mov: "VideoItem", m4v: "VideoItem", webm: "VideoItem", mkv: "VideoItem", avi: "VideoItem",
+            pdf: "PDFItem"
         })
 
         // The first dropped file the workspace can show, or "" if there's none
