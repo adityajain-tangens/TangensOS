@@ -1,0 +1,56 @@
+import QtQuick
+
+// The frame every component sits in. Drag its top strip to move it.
+// For now the inside is a coloured box that shows where it sits on the grid.
+Rectangle {
+    id: frame
+
+    // Filled in from this component's entry in the model
+    required property int index
+    required property int col
+    required property int row
+    required property int cols
+    required property int rows
+
+    // True while the top strip is being dragged
+    readonly property bool dragging: grab.active
+
+    radius: 12
+    color: "white"
+    border.color: "#dddad3"
+    // In front of the others while dragged
+    z: dragging ? 1 : 0
+
+    // When its position changes because of the grid, glide there instead of jumping
+    Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+    Behavior on y { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+
+    // The top strip: hold it to drag the whole frame
+    Item {
+        width: parent.width
+        height: 36
+
+        DragHandler {
+            id: grab
+            target: frame
+        }
+    }
+
+    // A different pale colour per component, so they're easy to tell apart
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: 8
+        anchors.topMargin: 36
+        radius: 8
+        color: Qt.hsla((frame.index * 0.17) % 1, 0.5, 0.85, 1)
+    }
+
+    // Its grid position, to check the layout
+    Text {
+        x: 12
+        y: 10
+        text: "col " + frame.col + ", row " + frame.row + "  ·  " + frame.cols + " × " + frame.rows
+        color: "#555"
+        font.pixelSize: 13
+    }
+}
