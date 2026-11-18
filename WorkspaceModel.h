@@ -12,7 +12,7 @@ class WorkspaceModel : public QAbstractListModel
     QML_ELEMENT
 
 public:
-    enum Role { ColRole = Qt::UserRole, RowRole, ColsRole, RowsRole, ItemRole };
+    enum Role { ColRole = Qt::UserRole, RowRole, ColsRole, RowsRole, ItemRole, FileRole };
 
     explicit WorkspaceModel(QObject *parent = nullptr);
 
@@ -23,6 +23,11 @@ public:
     // Called from QML: when a drag starts, and each time the dragged component is over a new cell
     Q_INVOKABLE void startMove();
     Q_INVOKABLE void moveComponent(int component, int col, int row);
+
+    // Called from QML when something is dropped on the workspace. Adds a component of this
+    // size holding this item and file, at the cell (col, row) or the nearest free spot to it.
+    // Does nothing and returns false if that cell is already covered by a component.
+    Q_INVOKABLE bool addComponent(const QString &item, const QString &file, int col, int row, int cols, int rows);
 
 private:
     QRect nearestFreeSpot(const QRect &component, const QList<QRect> &taken) const;
@@ -35,4 +40,6 @@ private:
     QList<QRect> m_atStart;
     // What sits inside each component, in the same order as m_components
     QList<QString> m_items;
+    // The file each component's item shows, if it shows one (like ImageItem), in the same order
+    QList<QString> m_files;
 };

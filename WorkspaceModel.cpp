@@ -19,6 +19,8 @@ WorkspaceModel::WorkspaceModel(QObject *parent)
     // What sits inside each component, in the same order as above: the name of a
     // ComponentItem's .qml file, like "TextFieldItem". "" leaves it empty.
     m_items = { "TextFieldItem", "", "", "", "" };
+    // None of them shows a file to start with
+    m_files = QList<QString>(m_components.size());
 }
 
 int WorkspaceModel::rowCount(const QModelIndex &parent) const
@@ -35,6 +37,7 @@ QVariant WorkspaceModel::data(const QModelIndex &index, int role) const
     case ColsRole: return component.width();
     case RowsRole: return component.height();
     case ItemRole: return m_items.at(index.row());
+    case FileRole: return m_files.at(index.row());
     }
     return {};
 }
@@ -42,7 +45,29 @@ QVariant WorkspaceModel::data(const QModelIndex &index, int role) const
 // The names QML uses for each value
 QHash<int, QByteArray> WorkspaceModel::roleNames() const
 {
-    return { { ColRole, "col" }, { RowRole, "row" }, { ColsRole, "cols" }, { RowsRole, "rows" }, { ItemRole, "item" } };
+    return { { ColRole, "col" }, { RowRole, "row" }, { ColsRole, "cols" }, { RowsRole, "rows" },
+             { ItemRole, "item" }, { FileRole, "file" } };
+}
+
+bool WorkspaceModel::addComponent(const QString &item, const QString &file, int col, int row, int cols, int rows)
+{
+    const QPoint cell(col, row);
+    for (const QRect &other : m_components) {
+        if (other.contains(cell))
+            return false;
+    }
+
+    QRect component(qBound(0, col, columns - cols), qMax(0, row), cols, rows);
+    component = nearestFreeSpot(component, m_components);
+
+    const int at = m_components.size();
+    beginInsertRows({}, at, at);
+    m_components.append(component);
+    m_atStart.append(component);
+    m_items.append(item);
+    m_files.append(file);
+    endInsertRows();
+    return true;
 }
 
 void WorkspaceModel::startMove()
