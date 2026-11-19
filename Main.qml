@@ -20,6 +20,12 @@ ApplicationWindow {
         components: componentList
     }
 
+    // The UI on top of the workspace, which doesn't scroll or zoom with it (OverlayView.qml)
+    OverlayView {
+        anchors.fill: parent
+        workspace: workspace
+    }
+
     // Cmd+G (Ctrl+G on Windows) shows or hides the grid, to check the layout by eye
     Shortcut {
         sequence: "Ctrl+G"

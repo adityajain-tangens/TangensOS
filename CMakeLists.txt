@@ -28,6 +28,7 @@ qt_add_qml_module(appTangens
         ButtonsMenuItem.qml
         DropZoneItem.qml
         GridItem.qml
+        OverlayView.qml
     SOURCES
         WorkspaceModel.h
         WorkspaceModel.cpp
