@@ -182,6 +182,8 @@ Flickable {
             // A note: a TextFieldItem starting with what was typed. It holds rich text,
             // so the typed text is escaped to stay exactly as it is.
             onAddNote: (text) => addHere("TextFieldItem", text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>"))
+            // A web page, searching for what was typed, if anything
+            onSearchWeb: (text) => addHere("WebViewItem", text)
             // A spot to drop an image, video or PDF onto
             onAddDropZone: addHere("DropZoneItem", "")
         }

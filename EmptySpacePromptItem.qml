@@ -8,6 +8,8 @@ Column {
     id: prompt
 
     property alias textField: textField
+    // Sent when "Search on the web" is clicked, with what's been typed so far
+    signal searchWeb(string text)
     // Sent when "Add a note" is clicked, with what's been typed so far
     signal addNote(string text)
     // Sent when "Add an image/video" is clicked
@@ -32,7 +34,9 @@ Column {
             { icon: "📝", title: "Add a note" }
         ]
         onClicked: (index) => {
-            if (index === 1)
+            if (index === 0)
+                prompt.searchWeb(textField.text)
+            else if (index === 1)
                 prompt.addDropZone()
             else if (index === 2)
                 prompt.addNote(textField.text)

@@ -8,6 +8,10 @@ import QtWebEngine
 Item {
     id: web
 
+    // What to open first, opened like what's typed in the address field. ComponentFrame fills it in.
+    property string text
+    onTextChanged: go(text)
+
     // Opens what was typed: a web address, or a Google search for anything else
     function go(typed) {
         const text = typed.trim()
