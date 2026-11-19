@@ -17,18 +17,22 @@ Rectangle {
 
     // True while the top strip is being dragged
     readonly property bool dragging: grab.active
+    // Where the pointer is in the window while the top strip is dragged
+    readonly property point dragPoint: grab.centroid.scenePosition
 
     // Sent while a corner is dragged: which corner, and where the pointer is on screen
     signal resizeStarted()
     signal resizeMoved(bool atLeft, bool atTop, point pointer)
     // Sent when the X button in the top strip is clicked
     signal closeClicked()
+    // Sent when a file is dragged out of the item inside and let go, like from a GridItem
+    signal fileDraggedOut(string file, point scenePosition)
 
     radius: 12
     color: "white"
     border.color: "#dddad3"
-    // In front of the others while dragged
-    z: dragging ? 1 : 0
+    // In front of the others while it, or something in it, is dragged
+    z: dragging || (content.item?.dragging ?? false) ? 1 : 0
 
     // When its position changes because of the grid, glide there instead of jumping
     Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
@@ -74,6 +78,7 @@ Rectangle {
 
     // What's inside: loads the file the model names, like TextFieldItem.qml
     Loader {
+        id: content
         anchors.fill: parent
         anchors.margins: 8
         anchors.topMargin: 36
@@ -85,6 +90,7 @@ Rectangle {
         onLoaded: {
             if ("file" in item) item.file = Qt.binding(() => frame.file)
             if ("text" in item) item.text = frame.text
+            if ("draggedOut" in item) item.draggedOut.connect(frame.fileDraggedOut)
         }
     }
 

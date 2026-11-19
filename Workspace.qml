@@ -11,6 +11,13 @@ Flickable {
     property bool showGrid: false
     // The component being dragged, or null when nothing is
     property ComponentFrame movingFrame: null
+    // The component the dragged one will join in a grid if let go now, or null
+    property ComponentFrame mergeTarget: null
+    // The cell the dragged component started from
+    property point dragStartCell
+
+    // The items that can go in a grid, and so can be merged by dragging one onto another
+    readonly property var mergeable: ["ImageItem", "VideoItem", "PDFItem", "GridItem"]
 
     // Grid settings, the same as the Electron prototype
     readonly property int columns: 12
@@ -28,9 +35,39 @@ Flickable {
     function widthFor(cols) { return cols * columnWidth + (cols - 1) * gap }
     function heightFor(rows) { return rows * rowHeight + (rows - 1) * gap }
 
+    // The other image, video, PDF or grid component under the pointer while this one is dragged, or null
+    function mergeTargetFor(frame) {
+        if (!mergeable.includes(frame.item))
+            return null
+        for (const child of componentLayer.children) {
+            const other = child as ComponentFrame
+            if (other === null || other === frame || !mergeable.includes(other.item))
+                continue
+            const spot = other.mapFromItem(null, frame.dragPoint.x, frame.dragPoint.y)
+            if (other.contains(spot))
+                return other
+        }
+        return null
+    }
+
+    // Puts the files of both components in one grid, in place of the target, and removes the dragged one
+    function merge(frame, target) {
+        const files = target.file.split("\n").concat(frame.file.split("\n"))
+        components.replaceItem(target.index, "GridItem", files.join("\n"))
+        components.removeComponent(frame.index)
+    }
+
     // While a component is dragged: find the cell nearest its top-left corner,
-    // and when that's a new cell, ask the model to move it there
+    // and when that's a new cell, ask the model to move it there.
+    // Over a component it can merge with, everything goes back to where it started
+    // instead, so that component stays put under the pointer.
     function followDrag(frame) {
+        mergeTarget = mergeTargetFor(frame)
+        if (mergeTarget !== null) {
+            if (frame.col !== dragStartCell.x || frame.row !== dragStartCell.y)
+                components.moveComponent(frame.index, dragStartCell.x, dragStartCell.y)
+            return
+        }
         const col = Math.round((frame.x - padding) / (columnWidth + gap))
         const row = Math.round((frame.y - padding) / (rowHeight + gap))
         const landingCol = Math.max(0, Math.min(columns - frame.cols, col))
@@ -97,7 +134,7 @@ Flickable {
 
     // Where the dragged component will land, shown under it while dragging
     Rectangle {
-        visible: workspace.movingFrame !== null
+        visible: workspace.movingFrame !== null && workspace.mergeTarget === null
         x: visible ? workspace.xFor(workspace.movingFrame.col) : 0
         y: visible ? workspace.yFor(workspace.movingFrame.row) : 0
         width: visible ? workspace.widthFor(workspace.movingFrame.cols) : 0
@@ -108,8 +145,29 @@ Flickable {
         border.width: 2
     }
 
+    // A file dragged out of a grid and let go: if that's an empty spot, it becomes a component there
+    // and leaves the grid. A grid left with one file becomes a component showing just that file.
+    function takeOutOfGrid(frame, file, scenePosition) {
+        const spot = componentLayer.mapFromItem(null, scenePosition.x, scenePosition.y)
+        if (spot.y < 0 || componentLayer.childAt(spot.x, spot.y) !== null)
+            return
+        const col = Math.floor((spot.x - padding) / (columnWidth + gap))
+        const row = Math.floor((spot.y - padding) / (rowHeight + gap))
+        const itemFor = (name) => dropArea.itemFor[name.split(".").pop().toLowerCase()]
+        if (!components.addComponent(itemFor(file), file, Math.max(0, Math.min(columns - 1, col)), Math.max(0, row), 4, 6))
+            return
+
+        const left = frame.file.split("\n")
+        left.splice(left.indexOf(file), 1)
+        if (left.length === 1)
+            components.replaceItem(frame.index, itemFor(left[0]), left[0])
+        else
+            components.replaceItem(frame.index, "GridItem", left.join("\n"))
+    }
+
     // Dropping an image, video or PDF file on an empty spot adds a component that shows it
     DropArea {
+        id: dropArea
         width: workspace.width
         height: Math.max(workspace.height, workspace.contentHeight)
 
@@ -121,20 +179,17 @@ Flickable {
             pdf: "PDFItem"
         })
 
-        // The first dropped file the workspace can show, or "" if there's none
-        function firstShowable(urls) {
-            for (const url of urls) {
-                const name = url.toString()
-                if (itemFor[name.split(".").pop().toLowerCase()])
-                    return name
-            }
-            return ""
+        // The dropped files the workspace can show
+        function showable(urls) {
+            return Array.from(urls).map(url => url.toString()).filter(name => itemFor[name.split(".").pop().toLowerCase()])
         }
 
-        onEntered: (drag) => drag.accepted = firstShowable(drag.urls) !== ""
+        onEntered: (drag) => drag.accepted = showable(drag.urls).length > 0
         onDropped: (drop) => {
-            const file = firstShowable(drop.urls)
-            const item = itemFor[file.split(".").pop().toLowerCase()]
+            // Several files go together in a GridItem, one URL per line
+            const files = showable(drop.urls)
+            const file = files.join("\n")
+            const item = files.length > 1 ? "GridItem" : itemFor[file.split(".").pop().toLowerCase()]
 
             // On a DropZoneItem, the file takes its place
             const frame = componentLayer.childAt(drop.x, drop.y) as ComponentFrame
@@ -203,10 +258,21 @@ Flickable {
                 width: workspace.widthFor(cols)
                 height: workspace.heightFor(rows)
 
+                // Outlined while the dragged component would merge into it
+                border.color: workspace.mergeTarget === frame ? "#5b5bd6" : "#dddad3"
+                border.width: workspace.mergeTarget === frame ? 3 : 1
+
                 onDraggingChanged: {
                     if (dragging) {
                         workspace.components.startChange()
                         workspace.movingFrame = frame
+                        workspace.dragStartCell = Qt.point(col, row)
+                    } else if (workspace.mergeTarget !== null) {
+                        // Dropped on a component it can merge with: they become one grid
+                        const target = workspace.mergeTarget
+                        workspace.mergeTarget = null
+                        workspace.movingFrame = null
+                        workspace.merge(frame, target)
                     } else {
                         // Dropped: follow its grid cell again, which glides it into place
                         x = Qt.binding(() => workspace.xFor(col))
@@ -215,10 +281,13 @@ Flickable {
                     }
                 }
                 onCloseClicked: workspace.components.removeComponent(index)
+                onFileDraggedOut: (file, scenePosition) => workspace.takeOutOfGrid(frame, file, scenePosition)
                 onResizeStarted: workspace.components.startChange()
                 onResizeMoved: (atLeft, atTop, pointer) => workspace.followResize(frame, atLeft, atTop, pointer)
                 onXChanged: if (dragging) workspace.followDrag(frame)
                 onYChanged: if (dragging) workspace.followDrag(frame)
+                // The frame glides behind the pointer, so also check each time the pointer moves
+                onDragPointChanged: if (dragging) workspace.followDrag(frame)
             }
         }
     }
