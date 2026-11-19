@@ -312,9 +312,9 @@ Flickable {
                 prompt.y -= prompt.textField.height / 2
                 prompt.textField.forceActiveFocus()
             }
-            // Turning the scroll wheel: up zooms in to full size, down zooms out to half size.
-            // It no longer scrolls: drag the workspace for that.
-            // Two fingers on a trackpad still drag the workspace: those come with a scroll phase (begin, update,
+            // Turning the mouse wheel, anywhere, as components pass it on: up zooms in to full size, down zooms
+            // out to half size. It no longer scrolls: drag the workspace for that.
+            // Two fingers on the trackpad still drag the workspace: those come with a scroll phase (begin, update,
             // end), a mouse wheel doesn't. They're passed on to the Flickable, which scrolls by them.
             onWheel: (wheel) => {
                 if (wheel.phase !== Qt.NoScrollPhase) {
@@ -389,8 +389,8 @@ Flickable {
                         }
                     }
                     onCloseClicked: workspace.components.removeComponent(index)
-                    onFileDraggedOut: (file, scenePosition) => workspace.takeOutOfGrid(frame, file, scenePosition)
-                    onResizeStarted: workspace.components.startChange()
+                onFileDraggedOut: (file, scenePosition) => workspace.takeOutOfGrid(frame, file, scenePosition)
+                        onResizeStarted: workspace.components.startChange()
                     onResizeMoved: (atLeft, atTop, pointer) => workspace.followResize(frame, atLeft, atTop, pointer)
                     onXChanged: if (dragging) workspace.followDrag(frame)
                     onYChanged: if (dragging) workspace.followDrag(frame)

@@ -3,7 +3,8 @@ pragma ComponentBehavior: Bound
 import QtQuick
 
 // A grid of images, videos and PDFs, with space between them. Each file is shown by the
-// item for its kind (ImageItem, VideoItem or PDFItem). Works inside a component or anywhere else.
+// item for its kind (ImageItem, VideoItem or PDFItem). The files are only shown: they can be dragged,
+// but not clicked or scrolled. Works inside a component or anywhere else.
 Item {
     id: grid
 
@@ -53,7 +54,7 @@ Item {
         Repeater {
             model: grid.files
 
-            Loader {
+            Item {
                 id: cell
                 required property string modelData
                 readonly property string itemName: grid.itemFor[modelData.split(".").pop().toLowerCase()] ?? ""
@@ -64,16 +65,21 @@ Item {
                 width: grid.cellWidth
                 height: grid.cellHeight
                 clip: true
-                source: itemName === "" ? "" : itemName + ".qml"
-                onLoaded: item.file = modelData
+
+                // The file. Turned off, so it gets no clicks or scrolling: a video doesn't play on a click
+                Loader {
+                    anchors.fill: parent
+                    enabled: false
+                    source: cell.itemName === "" ? "" : cell.itemName + ".qml"
+                    onLoaded: item.file = cell.modelData
+                }
 
                 // Follows the pointer while dragged, in front of the other files
                 transform: Translate { x: cell.offset.x; y: cell.offset.y }
                 z: move.active ? 1 : 0
                 opacity: move.active ? 0.8 : 1
 
-                // Hold anywhere on a file to drag it. It takes the drag from what's inside, so dragging a PDF
-                // moves it instead of scrolling it (the scroll wheel still scrolls it), and a video still plays on a click.
+                // Hold anywhere on a file to drag it
                 DragHandler {
                     id: move
                     target: null

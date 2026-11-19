@@ -1,7 +1,8 @@
 import QtQuick
 
-// The frame every component sits in. Drag its top strip to move it, or a corner to resize it.
-// What sits inside is a ComponentItem, named in the model (see WorkspaceModel.cpp).
+// The frame every component sits in. Drag it from anywhere to move it, or a corner to resize it.
+// What sits inside is a ComponentItem, named in the model (see WorkspaceModel.cpp). It's only shown:
+// it's turned off, so clicks, typing and the scroll wheel never reach it, and a web page can't be used.
 Rectangle {
     id: frame
 
@@ -15,15 +16,15 @@ Rectangle {
     required property string file
     required property string text
 
-    // True while the top strip is being dragged
+    // True while it's being dragged
     readonly property bool dragging: grab.active
-    // Where the pointer is in the window while the top strip is dragged
+    // Where the pointer is in the window while it's dragged
     readonly property point dragPoint: grab.centroid.scenePosition
 
     // Sent while a corner is dragged: which corner, and where the pointer is on screen
     signal resizeStarted()
     signal resizeMoved(bool atLeft, bool atTop, point pointer)
-    // Sent when the X button in the top strip is clicked
+    // Sent when the X button at the top is clicked
     signal closeClicked()
     // Sent when a file is dragged out of the item inside and let go, like from a GridItem
     signal fileDraggedOut(string file, point scenePosition)
@@ -40,10 +41,11 @@ Rectangle {
     Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
     Behavior on height { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
 
-    // The top strip: hold it to drag the whole frame
+    onDraggingChanged: if (dragging) forceActiveFocus()
+
+    // Hold anywhere on the frame to drag it. Behind what's inside, so in a GridItem a press on a file drags the file.
     Item {
-        width: parent.width
-        height: 36
+        anchors.fill: parent
 
         DragHandler {
             id: grab
@@ -54,27 +56,7 @@ Rectangle {
         TapHandler {
             onTapped: frame.forceActiveFocus()
         }
-
-        // The X button on the right: deletes this component
-        Text {
-            anchors.right: parent.right
-            anchors.rightMargin: 12
-            anchors.verticalCenter: parent.verticalCenter
-            text: "✕"
-            color: closeHover.hovered ? "#222" : "#888"
-            font.pixelSize: 14
-
-            HoverHandler {
-                id: closeHover
-                cursorShape: Qt.PointingHandCursor
-            }
-            TapHandler {
-                onTapped: frame.closeClicked()
-            }
-        }
     }
-
-    onDraggingChanged: if (dragging) forceActiveFocus()
 
     // What's inside: loads the file the model names, like TextFieldItem.qml
     Loader {
@@ -83,6 +65,10 @@ Rectangle {
         anchors.margins: 8
         anchors.topMargin: 36
         source: frame.item === "" ? "" : frame.item + ".qml"
+        // Turned off, so it gets no clicks, typing, hovering or scrolling: a web page can't be used.
+        // Items whose files can be dragged out, like GridItem, stay on so their files can be dragged.
+        // They turn off everything else in them themselves.
+        enabled: item !== null && "draggedOut" in item
         // Items that show a file, like ImageItem, follow this component's file. It's a binding, not a
         // one-time copy, because when a DropZoneItem is swapped for one (WorkspaceModel::replaceItem),
         // the new item loads before the file arrives.
@@ -111,6 +97,24 @@ Rectangle {
         text: "col " + frame.col + ", row " + frame.row + "  ·  " + frame.cols + " × " + frame.rows
         color: "#555"
         font.pixelSize: 13
+    }
+
+    // The X button at the top right: deletes this component
+    Text {
+        anchors.right: parent.right
+        anchors.rightMargin: 12
+        y: 18 - height / 2
+        text: "✕"
+        color: closeHover.hovered ? "#222" : "#888"
+        font.pixelSize: 14
+
+        HoverHandler {
+            id: closeHover
+            cursorShape: Qt.PointingHandCursor
+        }
+        TapHandler {
+            onTapped: frame.closeClicked()
+        }
     }
 
     // The four corners: invisible squares, centred on each corner, above everything else
