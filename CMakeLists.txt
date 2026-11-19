@@ -4,7 +4,7 @@ project(Tangens VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Quick)
+find_package(Qt6 REQUIRED COMPONENTS Quick WebEngineQuick)
 
 qt_standard_project_setup(REQUIRES 6.10)
 
@@ -20,9 +20,11 @@ qt_add_qml_module(appTangens
         Workspace.qml
         ComponentFrame.qml
         TextFieldItem.qml
+        WebViewItem.qml
     SOURCES
         WorkspaceModel.h
         WorkspaceModel.cpp
+        QML_FILES WebViewItem.qml
 )
 
 set_target_properties(appTangens PROPERTIES
@@ -31,5 +33,5 @@ set_target_properties(appTangens PROPERTIES
 )
 
 target_link_libraries(appTangens
-    PRIVATE Qt6::Quick
+    PRIVATE Qt6::Quick Qt6::WebEngineQuick
 )

@@ -18,7 +18,7 @@ WorkspaceModel::WorkspaceModel(QObject *parent)
 
     // What sits inside each component, in the same order as above: the name of a
     // ComponentItem's .qml file, like "TextFieldItem". "" leaves it empty.
-    m_items = { "TextFieldItem", "", "", "", "" };
+    m_items = { "TextFieldItem", "", "", "WebViewItem", "" };
 }
 
 int WorkspaceModel::rowCount(const QModelIndex &parent) const
