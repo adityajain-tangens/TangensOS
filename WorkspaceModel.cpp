@@ -60,7 +60,7 @@ bool WorkspaceModel::addComponent(const QString &item, const QString &file, int 
             return false;
     }
 
-    QRect component(qBound(0, col, columns - cols), qMax(0, row), cols, rows);
+    QRect component(col, row, cols, rows);
     component = nearestFreeSpot(component, m_components);
 
     const int at = m_components.size();
@@ -71,6 +71,7 @@ bool WorkspaceModel::addComponent(const QString &item, const QString &file, int 
     m_files.append(file);
     m_texts.append(text);
     endInsertRows();
+    emit boundsChanged();
     return true;
 }
 
@@ -89,6 +90,7 @@ void WorkspaceModel::removeComponent(int component)
     m_files.removeAt(component);
     m_texts.removeAt(component);
     endRemoveRows();
+    emit boundsChanged();
 }
 
 void WorkspaceModel::startChange()
@@ -100,7 +102,7 @@ void WorkspaceModel::startChange()
 void WorkspaceModel::moveComponent(int component, int col, int row)
 {
     QRect moved = m_atStart.at(component);
-    moved.moveTo(qBound(0, col, columns - moved.width()), qMax(0, row));
+    moved.moveTo(col, row);
     place(component, moved);
 }
 
@@ -112,13 +114,13 @@ void WorkspaceModel::resizeComponent(int component, int left, int top, int right
     const int startRight = start.x() + start.width();
     const int startBottom = start.y() + start.height();
 
-    // Keep each edge that moved inside the workspace, and at least the minimum size from the opposite edge
+    // Keep each edge that moved at least the minimum size from the opposite edge
     if (left != start.x())
-        left = qBound(0, left, startRight - minCols);
+        left = qMin(left, startRight - minCols);
     if (right != startRight)
-        right = qBound(start.x() + minCols, right, columns);
+        right = qMax(start.x() + minCols, right);
     if (top != start.y())
-        top = qBound(0, top, startBottom - minRows);
+        top = qMin(top, startBottom - minRows);
     if (bottom != startBottom)
         bottom = qMax(start.y() + minRows, bottom);
 
@@ -149,20 +151,37 @@ void WorkspaceModel::place(int component, const QRect &moved)
 
     m_components = result;
     emit dataChanged(index(0), index(m_components.size() - 1), { ColRole, RowRole, ColsRole, RowsRole });
+    emit boundsChanged();
+}
+
+// The smallest rectangle of cells holding every component
+QRect WorkspaceModel::bounds() const
+{
+    QRect all;
+    for (const QRect &component : m_components)
+        all |= component;
+    return all;
 }
 
 // The free spot of the same size that's closest to where the component is now
 QRect WorkspaceModel::nearestFreeSpot(const QRect &component, const QList<QRect> &taken) const
 {
-    // Below the lowest component there's always room, so there's no need to look further down
-    int bottom = 0;
-    for (const QRect &other : taken)
+    // Past the outermost components there's always room, so there's no need to look further out
+    int left = component.x();
+    int top = component.y();
+    int right = component.x();
+    int bottom = component.y();
+    for (const QRect &other : taken) {
+        left = qMin(left, other.x() - component.width());
+        top = qMin(top, other.y() - component.height());
+        right = qMax(right, other.x() + other.width());
         bottom = qMax(bottom, other.y() + other.height());
+    }
 
     QRect best;
     int bestDistance = INT_MAX;
-    for (int row = 0; row <= bottom; ++row) {
-        for (int col = 0; col + component.width() <= columns; ++col) {
+    for (int row = top; row <= bottom; ++row) {
+        for (int col = left; col <= right; ++col) {
             const QRect spot(col, row, component.width(), component.height());
             const bool free = std::none_of(taken.begin(), taken.end(),
                                            [&](const QRect &other) { return other.intersects(spot); });

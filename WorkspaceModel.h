@@ -5,11 +5,14 @@
 #include <QtQml/qqmlregistration.h>
 
 // The components on the workspace and where each one sits on the grid.
-// Positions and sizes are in grid cells. Components never overlap.
+// Positions and sizes are in grid cells. The grid has no end in any direction, so a cell
+// can be negative, like col -2. Components never overlap.
 class WorkspaceModel : public QAbstractListModel
 {
     Q_OBJECT
     QML_ELEMENT
+    // The smallest rectangle of cells holding every component
+    Q_PROPERTY(QRect bounds READ bounds NOTIFY boundsChanged)
 
 public:
     enum Role { ColRole = Qt::UserRole, RowRole, ColsRole, RowsRole, ItemRole, FileRole, TextRole };
@@ -38,11 +41,15 @@ public:
     // Called from QML when a component's X button is clicked: takes it off the workspace
     Q_INVOKABLE void removeComponent(int component);
 
+    QRect bounds() const;
+
+signals:
+    void boundsChanged();
+
 private:
     void place(int component, const QRect &moved);
     QRect nearestFreeSpot(const QRect &component, const QList<QRect> &taken) const;
 
-    static constexpr int columns = 12;
     // The smallest a component can be
     static constexpr int minCols = 2;
     static constexpr int minRows = 2;

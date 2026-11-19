@@ -3,7 +3,9 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 
-// The area that holds the components. It lays them out on a grid and scrolls up and down.
+// The area that holds the components. It lays them out on a grid with no end in any direction,
+// and scrolls in every direction. There are always a few empty columns and rows around the
+// components on every side. Its layout doesn't depend on the window's size.
 Flickable {
     id: workspace
 
@@ -20,18 +22,34 @@ Flickable {
     readonly property var mergeable: ["ImageItem", "VideoItem", "PDFItem", "GridItem"]
 
     // Grid settings, the same as the Electron prototype
-    readonly property int columns: 12
+    readonly property real columnWidth: 96
     readonly property real rowHeight: 56
     readonly property real gap: 12
     readonly property real padding: 16
-    readonly property int spareRows: 3
+    readonly property int spareRows: 15
+    readonly property int spareColumns: 15
 
-    // The 12 columns share the width that's left after the padding and gaps
-    readonly property real columnWidth: (width - 2 * padding - (columns - 1) * gap) / columns
+    readonly property real colStep: columnWidth + gap
+    readonly property real rowStep: rowHeight + gap
 
-    // Grid cells to pixels
-    function xFor(col) { return padding + col * (columnWidth + gap) }
-    function yFor(row) { return padding + row * (rowHeight + gap) }
+    // Where the components were when the drag started. While a component is dragged, the space
+    // before the first components only grows: if it shrank, the view would snap over and the
+    // components would slide out from under the pointer.
+    property rect boundsAtDragStart
+
+    // The whole area to draw on: from the left and top margins to the content's end, or the window if that's bigger
+    readonly property real areaX: -leftMargin
+    readonly property real areaY: -topMargin
+    readonly property real areaWidth: Math.max(width, leftMargin + contentWidth)
+    readonly property real areaHeight: Math.max(height, topMargin + contentHeight)
+
+    // Grid cells to pixels. Cell (0, 0) is at the top-left, inside the padding.
+    // Cells can be negative: those are reached by scrolling into the left and top margins.
+    function xFor(col) { return padding + col * colStep }
+    function yFor(row) { return padding + row * rowStep }
+    // Pixels to the cell they're in
+    function colAt(x) { return Math.floor((x - padding) / colStep) }
+    function rowAt(y) { return Math.floor((y - padding) / rowStep) }
     function widthFor(cols) { return cols * columnWidth + (cols - 1) * gap }
     function heightFor(rows) { return rows * rowHeight + (rows - 1) * gap }
 
@@ -68,20 +86,18 @@ Flickable {
                 components.moveComponent(frame.index, dragStartCell.x, dragStartCell.y)
             return
         }
-        const col = Math.round((frame.x - padding) / (columnWidth + gap))
-        const row = Math.round((frame.y - padding) / (rowHeight + gap))
-        const landingCol = Math.max(0, Math.min(columns - frame.cols, col))
-        const landingRow = Math.max(0, row)
-        if (landingCol !== frame.col || landingRow !== frame.row)
-            components.moveComponent(frame.index, landingCol, landingRow)
+        const col = Math.round((frame.x - padding) / colStep)
+        const row = Math.round((frame.y - padding) / rowStep)
+        if (col !== frame.col || row !== frame.row)
+            components.moveComponent(frame.index, col, row)
     }
 
     // While a corner is dragged: put that corner on the grid line nearest the pointer.
     // The other two edges stay where they are.
     function followResize(frame, atLeft, atTop, pointer) {
         const spot = componentLayer.mapFromItem(null, pointer.x, pointer.y)
-        const colLine = Math.round((spot.x - padding + gap / 2) / (columnWidth + gap))
-        const rowLine = Math.round((spot.y - padding + gap / 2) / (rowHeight + gap))
+        const colLine = Math.round((spot.x - padding + gap / 2) / colStep)
+        const rowLine = Math.round((spot.y - padding + gap / 2) / rowStep)
 
         const left = atLeft ? colLine : frame.col
         const right = atLeft ? frame.col + frame.cols : colLine
@@ -90,41 +106,55 @@ Flickable {
         components.resizeComponent(frame.index, left, top, right, bottom)
     }
 
-    // Scrolls down to the lowest component, plus a few empty rows
-    contentHeight: componentLayer.childrenRect.y + componentLayer.childrenRect.height + spareRows * (rowHeight + gap) + padding
-    flickableDirection: Flickable.VerticalFlick
+    // Scrolls from the first components to the last, plus a few empty columns and rows on every side.
+    // The margins reach the cells before the first components, so they're negative when those are after cell 0.
+    leftMargin: (spareColumns - (movingFrame !== null ? Math.min(components.bounds.x, boundsAtDragStart.x) : components.bounds.x)) * colStep
+    topMargin: (spareRows - (movingFrame !== null ? Math.min(components.bounds.y, boundsAtDragStart.y) : components.bounds.y)) * rowStep
+    contentWidth: xFor(components.bounds.x + components.bounds.width + spareColumns) - gap + padding
+    contentHeight: yFor(components.bounds.y + components.bounds.height + spareRows) - gap + padding
+    // Start with the first components at the top-left, the empty columns and rows before them scrolled out of view
+    Component.onCompleted: {
+        contentX = xFor(components.bounds.x) - padding
+        contentY = yFor(components.bounds.y) - padding
+    }
+    flickableDirection: Flickable.HorizontalAndVerticalFlick
     boundsBehavior: Flickable.StopAtBounds
     clip: true
     ScrollBar.vertical: ScrollBar {}
+    ScrollBar.horizontal: ScrollBar {}
 
     // The background, drawn behind everything
     Rectangle {
-        width: workspace.width
-        height: Math.max(workspace.height, workspace.contentHeight)
+        x: workspace.areaX
+        y: workspace.areaY
+        width: workspace.areaWidth
+        height: workspace.areaHeight
         color: "#f2f1ee"
     }
 
     // The grid lines: one stripe per column and one per row, only while showGrid is on
     Item {
         visible: workspace.showGrid
-        width: workspace.width
-        height: Math.max(workspace.height, workspace.contentHeight)
+        x: workspace.areaX
+        y: workspace.areaY
+        width: workspace.areaWidth
+        height: workspace.areaHeight
 
         Repeater {
-            model: workspace.columns
+            model: Math.ceil(parent.width / workspace.colStep) + 1
             Rectangle {
                 required property int index
-                x: workspace.xFor(index)
+                x: workspace.xFor(workspace.colAt(workspace.areaX) + index) - workspace.areaX
                 width: workspace.columnWidth
                 height: parent.height
                 color: "#140000ff"
             }
         }
         Repeater {
-            model: Math.ceil(parent.height / (workspace.rowHeight + workspace.gap))
+            model: Math.ceil(parent.height / workspace.rowStep) + 1
             Rectangle {
                 required property int index
-                y: workspace.yFor(index)
+                y: workspace.yFor(workspace.rowAt(workspace.areaY) + index) - workspace.areaY
                 width: parent.width
                 height: workspace.rowHeight
                 color: "#140000ff"
@@ -149,12 +179,12 @@ Flickable {
     // and leaves the grid. A grid left with one file becomes a component showing just that file.
     function takeOutOfGrid(frame, file, scenePosition) {
         const spot = componentLayer.mapFromItem(null, scenePosition.x, scenePosition.y)
-        if (spot.y < 0 || componentLayer.childAt(spot.x, spot.y) !== null)
+        if (componentLayer.childAt(spot.x, spot.y) !== null)
             return
-        const col = Math.floor((spot.x - padding) / (columnWidth + gap))
-        const row = Math.floor((spot.y - padding) / (rowHeight + gap))
+        const col = colAt(spot.x)
+        const row = rowAt(spot.y)
         const itemFor = (name) => dropArea.itemFor[name.split(".").pop().toLowerCase()]
-        if (!components.addComponent(itemFor(file), file, Math.max(0, Math.min(columns - 1, col)), Math.max(0, row), 4, 6))
+        if (!components.addComponent(itemFor(file), file, col, row, 4, 6))
             return
 
         const left = frame.file.split("\n")
@@ -168,8 +198,10 @@ Flickable {
     // Dropping an image, video or PDF file on an empty spot adds a component that shows it
     DropArea {
         id: dropArea
-        width: workspace.width
-        height: Math.max(workspace.height, workspace.contentHeight)
+        x: workspace.areaX
+        y: workspace.areaY
+        width: workspace.areaWidth
+        height: workspace.areaHeight
 
         // Which item shows each kind of file, by the end of its name
         readonly property var itemFor: ({
@@ -192,29 +224,34 @@ Flickable {
             const item = files.length > 1 ? "GridItem" : itemFor[file.split(".").pop().toLowerCase()]
 
             // On a DropZoneItem, the file takes its place
-            const frame = componentLayer.childAt(drop.x, drop.y) as ComponentFrame
+            const spot = dropArea.mapToItem(componentLayer, drop.x, drop.y)
+            const frame = componentLayer.childAt(spot.x, spot.y) as ComponentFrame
             if (frame !== null && frame.item === "DropZoneItem") {
                 workspace.components.replaceItem(frame.index, item, file)
                 drop.accept(Qt.CopyAction)
                 return
             }
 
-            const col = Math.floor((drop.x - workspace.padding) / (workspace.columnWidth + workspace.gap))
-            const row = Math.floor((drop.y - workspace.padding) / (workspace.rowHeight + workspace.gap))
+            const col = workspace.colAt(spot.x)
+            const row = workspace.rowAt(spot.y)
             // New components are 4 columns wide and 6 rows tall
-            if (workspace.components.addComponent(item, file, Math.max(0, Math.min(workspace.columns - 1, col)), Math.max(0, row), 4, 6))
+            if (workspace.components.addComponent(item, file, col, row, 4, 6))
                 drop.accept(Qt.CopyAction)
         }
     }
 
     // Clicking an empty spot adds a prompt there to start typing in
     MouseArea {
-        width: workspace.width
-        height: Math.max(workspace.height, workspace.contentHeight)
+        id: clickArea
+        x: workspace.areaX
+        y: workspace.areaY
+        width: workspace.areaWidth
+        height: workspace.areaHeight
         onClicked: (mouse) => {
-            if (componentLayer.childAt(mouse.x, mouse.y) !== null)
+            const spot = clickArea.mapToItem(componentLayer, mouse.x, mouse.y)
+            if (componentLayer.childAt(spot.x, spot.y) !== null)
                 return
-            const prompt = promptMaker.createObject(promptLayer, { x: mouse.x, y: mouse.y }) as EmptySpacePromptItem
+            const prompt = promptMaker.createObject(promptLayer, { x: spot.x, y: spot.y }) as EmptySpacePromptItem
             // Put the line being typed on the spot that was clicked
             prompt.y -= prompt.textField.height / 2
             prompt.textField.forceActiveFocus()
@@ -228,9 +265,9 @@ Flickable {
 
             // Adds a component holding this item where the prompt is, and the prompt goes away
             function addHere(item, text) {
-                const col = Math.floor((prompt.x - workspace.padding) / (workspace.columnWidth + workspace.gap))
-                const row = Math.floor((prompt.y - workspace.padding) / (workspace.rowHeight + workspace.gap))
-                if (workspace.components.addComponent(item, "", Math.max(0, Math.min(workspace.columns - 1, col)), Math.max(0, row), 4, 6, text))
+                const col = workspace.colAt(prompt.x)
+                const row = workspace.rowAt(prompt.y)
+                if (workspace.components.addComponent(item, "", col, row, 4, 6, text))
                     prompt.destroy()
             }
 
@@ -247,7 +284,6 @@ Flickable {
     // The components, one frame for each entry in the model
     Item {
         id: componentLayer
-        width: workspace.width
 
         Repeater {
             model: workspace.components
@@ -265,6 +301,7 @@ Flickable {
                 onDraggingChanged: {
                     if (dragging) {
                         workspace.components.startChange()
+                        workspace.boundsAtDragStart = workspace.components.bounds
                         workspace.movingFrame = frame
                         workspace.dragStartCell = Qt.point(col, row)
                     } else if (workspace.mergeTarget !== null) {
@@ -295,6 +332,5 @@ Flickable {
     // The prompts typed onto empty spots, in front of the components
     Item {
         id: promptLayer
-        width: workspace.width
     }
 }
