@@ -5,6 +5,9 @@ import QtQuick.Controls
 Item {
     id: textField
 
+    // What's typed in it
+    property alias text: area.text
+
     // A button on the bar. It never takes focus, so the text keeps its selection.
     component FormatButton: ToolButton {
         focusPolicy: Qt.NoFocus

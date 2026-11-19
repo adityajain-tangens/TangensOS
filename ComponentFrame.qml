@@ -13,6 +13,7 @@ Rectangle {
     required property int rows
     required property string item
     required property string file
+    required property string text
 
     // True while the top strip is being dragged
     readonly property bool dragging: grab.active
@@ -52,7 +53,11 @@ Rectangle {
         anchors.topMargin: 36
         source: frame.item === "" ? "" : frame.item + ".qml"
         // Items that show a file, like ImageItem, get this component's file
-        onLoaded: if ("file" in item) item.file = frame.file
+        // and items that hold text, like TextFieldItem, start with this component's text
+        onLoaded: {
+            if ("file" in item) item.file = frame.file
+            if ("text" in item) item.text = frame.text
+        }
     }
 
     // When it has nothing inside, a different pale colour per component, so they're easy to tell apart

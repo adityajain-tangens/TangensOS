@@ -12,7 +12,7 @@ class WorkspaceModel : public QAbstractListModel
     QML_ELEMENT
 
 public:
-    enum Role { ColRole = Qt::UserRole, RowRole, ColsRole, RowsRole, ItemRole, FileRole };
+    enum Role { ColRole = Qt::UserRole, RowRole, ColsRole, RowsRole, ItemRole, FileRole, TextRole };
 
     explicit WorkspaceModel(QObject *parent = nullptr);
 
@@ -24,10 +24,11 @@ public:
     Q_INVOKABLE void startMove();
     Q_INVOKABLE void moveComponent(int component, int col, int row);
 
-    // Called from QML when something is dropped on the workspace. Adds a component of this
-    // size holding this item and file, at the cell (col, row) or the nearest free spot to it.
-    // Does nothing and returns false if that cell is already covered by a component.
-    Q_INVOKABLE bool addComponent(const QString &item, const QString &file, int col, int row, int cols, int rows);
+    // Called from QML when something is dropped on the workspace, or a note is added. Adds a component
+    // of this size holding this item and file (or starting text), at the cell (col, row) or the nearest
+    // free spot to it. Does nothing and returns false if that cell is already covered by a component.
+    Q_INVOKABLE bool addComponent(const QString &item, const QString &file, int col, int row, int cols, int rows,
+                                  const QString &text = {});
 
 private:
     QRect nearestFreeSpot(const QRect &component, const QList<QRect> &taken) const;
@@ -42,4 +43,6 @@ private:
     QList<QString> m_items;
     // The file each component's item shows, if it shows one (like ImageItem), in the same order
     QList<QString> m_files;
+    // The text each component's item starts with, if it holds text (like TextFieldItem), in the same order
+    QList<QString> m_texts;
 };

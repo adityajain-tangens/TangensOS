@@ -8,6 +8,8 @@ Column {
     id: prompt
 
     property alias textField: textField
+    // Sent when "Add a note" is clicked, with what's been typed so far
+    signal addNote(string text)
 
     spacing: 8
 
@@ -27,5 +29,9 @@ Column {
             { icon: "🖼️", title: "Add an image/video" },
             { icon: "📝", title: "Add a note" }
         ]
+        onClicked: (index) => {
+            if (index === 2)
+                prompt.addNote(textField.text)
+        }
     }
 }

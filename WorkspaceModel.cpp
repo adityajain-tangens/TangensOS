@@ -21,6 +21,7 @@ WorkspaceModel::WorkspaceModel(QObject *parent)
     m_items = { "TextFieldItem", "", "", "", "" };
     // None of them shows a file to start with
     m_files = QList<QString>(m_components.size());
+    m_texts = QList<QString>(m_components.size());
 }
 
 int WorkspaceModel::rowCount(const QModelIndex &parent) const
@@ -38,6 +39,7 @@ QVariant WorkspaceModel::data(const QModelIndex &index, int role) const
     case RowsRole: return component.height();
     case ItemRole: return m_items.at(index.row());
     case FileRole: return m_files.at(index.row());
+    case TextRole: return m_texts.at(index.row());
     }
     return {};
 }
@@ -46,10 +48,11 @@ QVariant WorkspaceModel::data(const QModelIndex &index, int role) const
 QHash<int, QByteArray> WorkspaceModel::roleNames() const
 {
     return { { ColRole, "col" }, { RowRole, "row" }, { ColsRole, "cols" }, { RowsRole, "rows" },
-             { ItemRole, "item" }, { FileRole, "file" } };
+             { ItemRole, "item" }, { FileRole, "file" }, { TextRole, "text" } };
 }
 
-bool WorkspaceModel::addComponent(const QString &item, const QString &file, int col, int row, int cols, int rows)
+bool WorkspaceModel::addComponent(const QString &item, const QString &file, int col, int row, int cols, int rows,
+                                  const QString &text)
 {
     const QPoint cell(col, row);
     for (const QRect &other : m_components) {
@@ -66,6 +69,7 @@ bool WorkspaceModel::addComponent(const QString &item, const QString &file, int 
     m_atStart.append(component);
     m_items.append(item);
     m_files.append(file);
+    m_texts.append(text);
     endInsertRows();
     return true;
 }

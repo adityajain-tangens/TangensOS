@@ -145,7 +145,18 @@ Flickable {
 
     Component {
         id: promptMaker
-        EmptySpacePromptItem {}
+        EmptySpacePromptItem {
+            id: prompt
+            // Turns into a note: a component holding a TextFieldItem, starting with what was typed
+            onAddNote: (text) => {
+                const col = Math.floor((prompt.x - workspace.padding) / (workspace.columnWidth + workspace.gap))
+                const row = Math.floor((prompt.y - workspace.padding) / (workspace.rowHeight + workspace.gap))
+                // TextFieldItem holds rich text, so keep the typed text exactly as it is
+                const richText = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")
+                workspace.components.addComponent("TextFieldItem", "", Math.max(0, Math.min(workspace.columns - 1, col)), Math.max(0, row), 4, 6, richText)
+                prompt.destroy()
+            }
+        }
     }
 
     // The components, one frame for each entry in the model
