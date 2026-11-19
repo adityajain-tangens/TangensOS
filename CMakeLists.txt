@@ -23,6 +23,7 @@ qt_add_qml_module(appTangens
         ImageItem.qml
         VideoItem.qml
         PDFItem.qml
+        EmptySpaceTextFieldItem.qml
     SOURCES
         WorkspaceModel.h
         WorkspaceModel.cpp

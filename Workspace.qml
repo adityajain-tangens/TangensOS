@@ -129,6 +129,25 @@ Flickable {
         }
     }
 
+    // Clicking an empty spot adds a text field there to start typing in
+    MouseArea {
+        width: workspace.width
+        height: Math.max(workspace.height, workspace.contentHeight)
+        onClicked: (mouse) => {
+            if (componentLayer.childAt(mouse.x, mouse.y) !== null)
+                return
+            const field = textFieldMaker.createObject(textLayer, { x: mouse.x, y: mouse.y }) as EmptySpaceTextFieldItem
+            // Put the line being typed on the spot that was clicked
+            field.y -= field.height / 2
+            field.forceActiveFocus()
+        }
+    }
+
+    Component {
+        id: textFieldMaker
+        EmptySpaceTextFieldItem {}
+    }
+
     // The components, one frame for each entry in the model
     Item {
         id: componentLayer
@@ -158,5 +177,11 @@ Flickable {
                 onYChanged: if (dragging) workspace.followDrag(frame)
             }
         }
+    }
+
+    // The text fields typed onto empty spots, in front of the components
+    Item {
+        id: textLayer
+        width: workspace.width
     }
 }

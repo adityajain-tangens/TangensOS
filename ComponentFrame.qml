@@ -36,7 +36,14 @@ Rectangle {
             id: grab
             target: frame
         }
+
+        // Taking the focus closes an empty "Start typing..." field (EmptySpaceTextFieldItem)
+        TapHandler {
+            onTapped: frame.forceActiveFocus()
+        }
     }
+
+    onDraggingChanged: if (dragging) forceActiveFocus()
 
     // What's inside: loads the file the model names, like TextFieldItem.qml
     Loader {
