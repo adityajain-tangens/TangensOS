@@ -81,6 +81,16 @@ void WorkspaceModel::replaceItem(int component, const QString &item, const QStri
     emit dataChanged(index(component), index(component), { ItemRole, FileRole });
 }
 
+void WorkspaceModel::removeComponent(int component)
+{
+    beginRemoveRows({}, component, component);
+    m_components.removeAt(component);
+    m_items.removeAt(component);
+    m_files.removeAt(component);
+    m_texts.removeAt(component);
+    endRemoveRows();
+}
+
 void WorkspaceModel::startChange()
 {
     m_atStart = m_components;

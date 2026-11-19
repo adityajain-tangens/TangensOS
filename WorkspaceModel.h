@@ -35,6 +35,9 @@ public:
     // now holds this item showing this file instead
     Q_INVOKABLE void replaceItem(int component, const QString &item, const QString &file);
 
+    // Called from QML when a component's X button is clicked: takes it off the workspace
+    Q_INVOKABLE void removeComponent(int component);
+
 private:
     void place(int component, const QRect &moved);
     QRect nearestFreeSpot(const QRect &component, const QList<QRect> &taken) const;

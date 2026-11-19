@@ -214,6 +214,7 @@ Flickable {
                         workspace.movingFrame = null
                     }
                 }
+                onCloseClicked: workspace.components.removeComponent(index)
                 onResizeStarted: workspace.components.startChange()
                 onResizeMoved: (atLeft, atTop, pointer) => workspace.followResize(frame, atLeft, atTop, pointer)
                 onXChanged: if (dragging) workspace.followDrag(frame)

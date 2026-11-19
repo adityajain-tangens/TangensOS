@@ -21,6 +21,8 @@ Rectangle {
     // Sent while a corner is dragged: which corner, and where the pointer is on screen
     signal resizeStarted()
     signal resizeMoved(bool atLeft, bool atTop, point pointer)
+    // Sent when the X button in the top strip is clicked
+    signal closeClicked()
 
     radius: 12
     color: "white"
@@ -47,6 +49,24 @@ Rectangle {
         // Taking the focus closes an empty "Start typing..." field (EmptySpacePromptItem)
         TapHandler {
             onTapped: frame.forceActiveFocus()
+        }
+
+        // The X button on the right: deletes this component
+        Text {
+            anchors.right: parent.right
+            anchors.rightMargin: 12
+            anchors.verticalCenter: parent.verticalCenter
+            text: "✕"
+            color: closeHover.hovered ? "#222" : "#888"
+            font.pixelSize: 14
+
+            HoverHandler {
+                id: closeHover
+                cursorShape: Qt.PointingHandCursor
+            }
+            TapHandler {
+                onTapped: frame.closeClicked()
+            }
         }
     }
 
