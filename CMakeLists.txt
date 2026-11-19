@@ -25,6 +25,7 @@ qt_add_qml_module(appTangens
         PDFItem.qml
         EmptySpacePromptItem.qml
         ButtonsMenuItem.qml
+        DropZoneItem.qml
     SOURCES
         WorkspaceModel.h
         WorkspaceModel.cpp

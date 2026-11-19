@@ -121,6 +121,15 @@ Flickable {
         onDropped: (drop) => {
             const file = firstShowable(drop.urls)
             const item = itemFor[file.split(".").pop().toLowerCase()]
+
+            // On a DropZoneItem, the file takes its place
+            const frame = componentLayer.childAt(drop.x, drop.y) as ComponentFrame
+            if (frame !== null && frame.item === "DropZoneItem") {
+                workspace.components.replaceItem(frame.index, item, file)
+                drop.accept(Qt.CopyAction)
+                return
+            }
+
             const col = Math.floor((drop.x - workspace.padding) / (workspace.columnWidth + workspace.gap))
             const row = Math.floor((drop.y - workspace.padding) / (workspace.rowHeight + workspace.gap))
             // New components are 4 columns wide and 6 rows tall
@@ -147,15 +156,20 @@ Flickable {
         id: promptMaker
         EmptySpacePromptItem {
             id: prompt
-            // Turns into a note: a component holding a TextFieldItem, starting with what was typed
-            onAddNote: (text) => {
+
+            // Adds a component holding this item where the prompt is, and the prompt goes away
+            function addHere(item, text) {
                 const col = Math.floor((prompt.x - workspace.padding) / (workspace.columnWidth + workspace.gap))
                 const row = Math.floor((prompt.y - workspace.padding) / (workspace.rowHeight + workspace.gap))
-                // TextFieldItem holds rich text, so keep the typed text exactly as it is
-                const richText = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")
-                workspace.components.addComponent("TextFieldItem", "", Math.max(0, Math.min(workspace.columns - 1, col)), Math.max(0, row), 4, 6, richText)
-                prompt.destroy()
+                if (workspace.components.addComponent(item, "", Math.max(0, Math.min(workspace.columns - 1, col)), Math.max(0, row), 4, 6, text))
+                    prompt.destroy()
             }
+
+            // A note: a TextFieldItem starting with what was typed. It holds rich text,
+            // so the typed text is escaped to stay exactly as it is.
+            onAddNote: (text) => addHere("TextFieldItem", text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>"))
+            // A spot to drop an image, video or PDF onto
+            onAddDropZone: addHere("DropZoneItem", "")
         }
     }
 

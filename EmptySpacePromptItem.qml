@@ -10,6 +10,8 @@ Column {
     property alias textField: textField
     // Sent when "Add a note" is clicked, with what's been typed so far
     signal addNote(string text)
+    // Sent when "Add an image/video" is clicked
+    signal addDropZone()
 
     spacing: 8
 
@@ -30,7 +32,9 @@ Column {
             { icon: "📝", title: "Add a note" }
         ]
         onClicked: (index) => {
-            if (index === 2)
+            if (index === 1)
+                prompt.addDropZone()
+            else if (index === 2)
                 prompt.addNote(textField.text)
         }
     }

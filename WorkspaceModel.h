@@ -30,6 +30,10 @@ public:
     Q_INVOKABLE bool addComponent(const QString &item, const QString &file, int col, int row, int cols, int rows,
                                   const QString &text = {});
 
+    // Called from QML when a file is dropped on a DropZoneItem: the component
+    // now holds this item showing this file instead
+    Q_INVOKABLE void replaceItem(int component, const QString &item, const QString &file);
+
 private:
     QRect nearestFreeSpot(const QRect &component, const QList<QRect> &taken) const;
 

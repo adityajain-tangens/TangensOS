@@ -52,10 +52,12 @@ Rectangle {
         anchors.margins: 8
         anchors.topMargin: 36
         source: frame.item === "" ? "" : frame.item + ".qml"
-        // Items that show a file, like ImageItem, get this component's file
-        // and items that hold text, like TextFieldItem, start with this component's text
+        // Items that show a file, like ImageItem, follow this component's file. It's a binding, not a
+        // one-time copy, because when a DropZoneItem is swapped for one (WorkspaceModel::replaceItem),
+        // the new item loads before the file arrives.
+        // Items that hold text, like TextFieldItem, start with this component's text.
         onLoaded: {
-            if ("file" in item) item.file = frame.file
+            if ("file" in item) item.file = Qt.binding(() => frame.file)
             if ("text" in item) item.text = frame.text
         }
     }

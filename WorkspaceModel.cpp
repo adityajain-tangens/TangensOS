@@ -74,6 +74,13 @@ bool WorkspaceModel::addComponent(const QString &item, const QString &file, int 
     return true;
 }
 
+void WorkspaceModel::replaceItem(int component, const QString &item, const QString &file)
+{
+    m_items[component] = item;
+    m_files[component] = file;
+    emit dataChanged(index(component), index(component), { ItemRole, FileRole });
+}
+
 void WorkspaceModel::startMove()
 {
     m_atStart = m_components;
