@@ -37,7 +37,7 @@ Rectangle {
             target: frame
         }
 
-        // Taking the focus closes an empty "Start typing..." field (EmptySpaceTextFieldItem)
+        // Taking the focus closes an empty "Start typing..." field (EmptySpacePromptItem)
         TapHandler {
             onTapped: frame.forceActiveFocus()
         }

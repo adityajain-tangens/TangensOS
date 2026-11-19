@@ -129,23 +129,23 @@ Flickable {
         }
     }
 
-    // Clicking an empty spot adds a text field there to start typing in
+    // Clicking an empty spot adds a prompt there to start typing in
     MouseArea {
         width: workspace.width
         height: Math.max(workspace.height, workspace.contentHeight)
         onClicked: (mouse) => {
             if (componentLayer.childAt(mouse.x, mouse.y) !== null)
                 return
-            const field = textFieldMaker.createObject(textLayer, { x: mouse.x, y: mouse.y }) as EmptySpaceTextFieldItem
+            const prompt = promptMaker.createObject(promptLayer, { x: mouse.x, y: mouse.y }) as EmptySpacePromptItem
             // Put the line being typed on the spot that was clicked
-            field.y -= field.height / 2
-            field.forceActiveFocus()
+            prompt.y -= prompt.textField.height / 2
+            prompt.textField.forceActiveFocus()
         }
     }
 
     Component {
-        id: textFieldMaker
-        EmptySpaceTextFieldItem {}
+        id: promptMaker
+        EmptySpacePromptItem {}
     }
 
     // The components, one frame for each entry in the model
@@ -179,9 +179,9 @@ Flickable {
         }
     }
 
-    // The text fields typed onto empty spots, in front of the components
+    // The prompts typed onto empty spots, in front of the components
     Item {
-        id: textLayer
+        id: promptLayer
         width: workspace.width
     }
 }
