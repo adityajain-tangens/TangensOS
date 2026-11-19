@@ -1,8 +1,11 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
+#include <QtWebEngineQuick/qtwebenginequickglobal.h>
 
 int main(int argc, char *argv[])
 {
+    // Web pages need their engine set up before anything else starts
+    QtWebEngineQuick::initialize();
     QGuiApplication app(argc, argv);
 
     QQmlApplicationEngine engine;

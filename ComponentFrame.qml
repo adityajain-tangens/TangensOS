@@ -1,6 +1,6 @@
 import QtQuick
 
-// The frame every component sits in. Drag its top strip to move it.
+// The frame every component sits in. Drag its top strip to move it, or a corner to resize it.
 // What sits inside is a ComponentItem, named in the model (see WorkspaceModel.cpp).
 Rectangle {
     id: frame
@@ -18,6 +18,10 @@ Rectangle {
     // True while the top strip is being dragged
     readonly property bool dragging: grab.active
 
+    // Sent while a corner is dragged: which corner, and where the pointer is on screen
+    signal resizeStarted()
+    signal resizeMoved(bool atLeft, bool atTop, point pointer)
+
     radius: 12
     color: "white"
     border.color: "#dddad3"
@@ -27,6 +31,8 @@ Rectangle {
     // When its position changes because of the grid, glide there instead of jumping
     Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
     Behavior on y { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+    Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+    Behavior on height { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
 
     // The top strip: hold it to drag the whole frame
     Item {
@@ -79,5 +85,33 @@ Rectangle {
         text: "col " + frame.col + ", row " + frame.row + "  ·  " + frame.cols + " × " + frame.rows
         color: "#555"
         font.pixelSize: 13
+    }
+
+    // The four corners: invisible squares, centred on each corner, above everything else
+    Repeater {
+        model: 4
+        Item {
+            id: corner
+            required property int index
+            // 0 is top left, 1 top right, 2 bottom left, 3 bottom right
+            readonly property bool atLeft: index % 2 === 0
+            readonly property bool atTop: index < 2
+
+            width: 16
+            height: 16
+            x: atLeft ? -width / 2 : frame.width - width / 2
+            y: atTop ? -height / 2 : frame.height - height / 2
+
+            // The diagonal resize arrow while the pointer is over it
+            HoverHandler {
+                cursorShape: corner.atLeft === corner.atTop ? Qt.SizeFDiagCursor : Qt.SizeBDiagCursor
+            }
+
+            DragHandler {
+                target: null
+                onActiveChanged: if (active) frame.resizeStarted()
+                onCentroidChanged: if (active) frame.resizeMoved(corner.atLeft, corner.atTop, centroid.scenePosition)
+            }
+        }
     }
 }
