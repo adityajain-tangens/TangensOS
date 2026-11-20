@@ -16,11 +16,13 @@ Rectangle {
     required property string text
 
     // True while it's shown big in MaximizedViewItem: what's inside can be used,
-    // and it can't be dragged, resized or deleted
+    // and it can't be dragged or deleted
     property bool maximized: false
 
     // True while it's being dragged
     readonly property bool dragging: grab.active
+    // True while it's being moved by its top bar while maximized
+    readonly property bool moving: barGrab.active
     // Where the pointer is in the window while it's dragged
     readonly property point dragPoint: grab.centroid.scenePosition
 
@@ -68,6 +70,23 @@ Rectangle {
                 if (!closeHover.hovered)
                     frame.clicked()
             }
+        }
+    }
+
+    // While maximized, its top bar moves it around the window, kept inside it. Only here, not on the
+    // workspace's model: it doesn't change where it goes back to.
+    Item {
+        width: parent.width
+        height: 36
+
+        DragHandler {
+            id: barGrab
+            enabled: frame.maximized
+            target: frame
+            xAxis.minimum: 0
+            xAxis.maximum: frame.parent.width - frame.width
+            yAxis.minimum: 0
+            yAxis.maximum: frame.parent.height - frame.height
         }
     }
 
@@ -139,7 +158,6 @@ Rectangle {
         Item {
             id: corner
             required property int index
-            visible: !frame.maximized
             // 0 is top left, 1 top right, 2 bottom left, 3 bottom right
             readonly property bool atLeft: index % 2 === 0
             readonly property bool atTop: index < 2

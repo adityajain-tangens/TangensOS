@@ -162,6 +162,16 @@ Flickable {
             components.replaceItem(frame.index, "GridItem", left.join("\n"))
     }
 
+    // Gives a component this shape (width divided by height), keeping about the same size: the same area,
+    // and the same top-left corner. Components in the way are pushed aside.
+    function reshape(frame, aspect) {
+        const size = frame.area.width * frame.area.height
+        const width = Math.round(Math.sqrt(size * aspect))
+        const height = Math.round(Math.sqrt(size / aspect))
+        components.startChange()
+        components.resizeComponent(frame.index, false, false, width - frame.area.width, height - frame.area.height)
+    }
+
     // Where a component's place on the workspace is on screen, in `item`'s coordinates: smaller when zoomed out
     function areaIn(frame, item) {
         const topLeft = componentLayer.mapToItem(item, frame.area.x, frame.area.y)
@@ -333,8 +343,9 @@ Flickable {
                     onCloseClicked: workspace.components.removeComponent(index)
                     onClicked: workspace.componentClicked(frame)
                     onFileDraggedOut: (file, scenePosition) => workspace.takeOutOfGrid(frame, file, scenePosition)
-                    onResizeStarted: workspace.components.startChange()
-                    onResizeMoved: (atLeft, atTop, moved) => workspace.followResize(frame, atLeft, atTop, moved)
+                    // Resized while maximized, MaximizedViewItem resizes it instead
+                    onResizeStarted: if (!maximized) workspace.components.startChange()
+                    onResizeMoved: (atLeft, atTop, moved) => { if (!maximized) workspace.followResize(frame, atLeft, atTop, moved) }
                     onXChanged: if (dragging) workspace.followDrag(frame)
                     onYChanged: if (dragging) workspace.followDrag(frame)
                     // The frame glides behind the pointer, so also check each time the pointer moves

@@ -2,8 +2,10 @@ import QtQuick
 
 // Shows one component big and usable, in front of the workspace and OverlayView.
 // show() moves the component's frame itself in here, out of the workspace, and grows it from where it was.
+// Its corners resize it, like on the workspace, and its top bar moves it around the window.
 // Clicking outside it shrinks it back to its place and hands it back to the workspace. Being the same
 // frame, it keeps everything done to it, like a note's edits or the page a web view is on.
+// If it was resized here, its place on the workspace takes its new shape, keeping about the same size.
 Item {
     id: view
 
@@ -16,6 +18,10 @@ Item {
 
     // The shown component's width divided by its height in the workspace
     property real aspect: 1
+    // True once it's been resized here
+    property bool resized: false
+    // Where it was when the current resize started
+    property rect resizeStart
 
     // Where the component sits once grown: as big as fits in 80% of the window's width and 90% of its height,
     // keeping its shape from the workspace, in the middle
@@ -37,6 +43,7 @@ Item {
         component.width = from.width
         component.height = from.height
         aspect = from.width / from.height
+        resized = false
         frame = component
         glideTo(grownRect)
     }
@@ -45,6 +52,8 @@ Item {
         if (frame === null || shrinking)
             return
         shrinking = true
+        if (resized)
+            workspace.reshape(frame, frame.width / frame.height)
         glideTo(workspace.areaIn(frame, view))
     }
 
@@ -83,6 +92,39 @@ Item {
                 view.frame.width = Qt.binding(() => view.grownRect.width)
                 view.frame.height = Qt.binding(() => view.grownRect.height)
             }
+        }
+    }
+
+    // Resizing by a corner: that corner follows the pointer and the opposite one stays put,
+    // never smaller than on the workspace's minimum, nor past the window's edges.
+    // From then on it keeps that size, and no longer follows the window's size.
+    Connections {
+        target: view.frame
+        // Moved by its top bar: it stays where it's let go, instead of in the middle
+        function onMovingChanged() {
+            if (view.frame.moving && !view.shrinking)
+                glide.stop()
+        }
+        function onResizeStarted() {
+            glide.stop()
+            view.resized = true
+            view.resizeStart = Qt.rect(view.frame.x, view.frame.y, view.frame.width, view.frame.height)
+        }
+        function onResizeMoved(atLeft, atTop, moved) {
+            const start = view.resizeStart
+            let left = start.x, top = start.y, right = start.x + start.width, bottom = start.y + start.height
+            if (atLeft)
+                left = Math.max(0, Math.min(left + moved.x, right - 114))
+            else
+                right = Math.min(view.width, Math.max(right + moved.x, left + 114))
+            if (atTop)
+                top = Math.max(0, Math.min(top + moved.y, bottom - 72))
+            else
+                bottom = Math.min(view.height, Math.max(bottom + moved.y, top + 72))
+            view.frame.x = left
+            view.frame.y = top
+            view.frame.width = right - left
+            view.frame.height = bottom - top
         }
     }
 

@@ -18,6 +18,8 @@ ApplicationWindow {
         id: workspace
         anchors.fill: parent
         components: componentList
+        // Gets no clicks, drags, pinches or wheel turns while a component is maximized
+        enabled: maximizedView.frame === null
         onComponentClicked: (frame) => maximizedView.show(frame)
     }
 
@@ -25,6 +27,7 @@ ApplicationWindow {
     OverlayView {
         anchors.fill: parent
         workspace: workspace
+        enabled: maximizedView.frame === null
     }
 
     // A clicked component, shown big and usable, in front of everything else (MaximizedViewItem.qml)
