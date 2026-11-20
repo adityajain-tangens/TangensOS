@@ -30,6 +30,8 @@ qt_add_qml_module(appTangens
         GridItem.qml
         OverlayView.qml
         MaximizedViewItem.qml
+        MaximizedComponentsViewItem.qml
+        ComponentSnapshotItem.qml
     SOURCES
         WorkspaceModel.h
         WorkspaceModel.cpp

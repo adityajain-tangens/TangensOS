@@ -6,6 +6,7 @@ import QtQuick
 // Clicking outside it shrinks it back to its place and hands it back to the workspace. Being the same
 // frame, it keeps everything done to it, like a note's edits or the page a web view is on.
 // If it was resized here, its place on the workspace takes its new shape, keeping about the same size.
+// The other components are shown small around it (MaximizedComponentsViewItem).
 Item {
     id: view
 
@@ -126,6 +127,17 @@ Item {
             view.frame.width = right - left
             view.frame.height = bottom - top
         }
+    }
+
+    // The other components, small, around it. In front of it, as they can slide over its edges.
+    MaximizedComponentsViewItem {
+        anchors.fill: parent
+        z: 1
+        workspace: view.workspace
+        frame: view.frame
+        // Only once it's done growing, and gone as soon as it starts shrinking back. Hidden by opacity,
+        // not visible, so it keeps following the pointer to tell when it's near the window's edges.
+        opacity: !glide.running && !view.shrinking ? 1 : 0
     }
 
     // Dims what's behind the component while it's shown. Clicks anywhere outside it shrink it back,

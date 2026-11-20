@@ -187,6 +187,11 @@ Flickable {
         frame.height = Qt.binding(() => frame.area.height)
     }
 
+    // The components on the workspace. A maximized one isn't: it's in MaximizedViewItem.
+    function frames() {
+        return componentLayer.children.filter(child => (child as ComponentFrame) !== null)
+    }
+
     // Puts a component back on the workspace, after MaximizedViewItem showed it maximized
     function takeBack(frame) {
         frame.parent = componentLayer
