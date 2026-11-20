@@ -29,6 +29,7 @@ qt_add_qml_module(appTangens
         DropZoneItem.qml
         GridItem.qml
         OverlayView.qml
+        MaximizedViewItem.qml
     SOURCES
         WorkspaceModel.h
         WorkspaceModel.cpp

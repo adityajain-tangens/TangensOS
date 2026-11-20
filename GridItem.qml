@@ -4,7 +4,8 @@ import QtQuick
 
 // A grid of images, videos and PDFs, with space between them. Each file is shown by the
 // item for its kind (ImageItem, VideoItem or PDFItem). The files are only shown: they can be dragged,
-// but not clicked or scrolled. Works inside a component or anywhere else.
+// but not clicked or scrolled. When interactive, they can be used instead, and not dragged.
+// Works inside a component or anywhere else.
 Item {
     id: grid
 
@@ -12,6 +13,8 @@ Item {
     property string file
     // True while one of the files is being dragged
     property bool dragging: false
+    // True when the files can be used, like playing a video or scrolling a PDF, instead of dragged
+    property bool interactive: false
 
     // Sent when a file is dragged and let go outside the grid, with where it was let go in the window.
     // The grid doesn't change by itself: Workspace.qml decides what happens.
@@ -66,10 +69,10 @@ Item {
                 height: grid.cellHeight
                 clip: true
 
-                // The file. Turned off, so it gets no clicks or scrolling: a video doesn't play on a click
+                // The file. Turned off unless interactive, so it gets no clicks or scrolling: a video doesn't play on a click
                 Loader {
                     anchors.fill: parent
-                    enabled: false
+                    enabled: grid.interactive
                     source: cell.itemName === "" ? "" : cell.itemName + ".qml"
                     onLoaded: item.file = cell.modelData
                 }
@@ -82,6 +85,7 @@ Item {
                 // Hold anywhere on a file to drag it
                 DragHandler {
                     id: move
+                    enabled: !grid.interactive
                     target: null
                     grabPermissions: PointerHandler.CanTakeOverFromAnything
 

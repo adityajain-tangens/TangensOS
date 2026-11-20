@@ -12,6 +12,9 @@ Flickable {
     id: workspace
 
     required property WorkspaceModel components
+    // Sent when a component is clicked, without dragging it. Main.qml shows it maximized
+    // (MaximizedViewItem), which takes it off the workspace until it hands it back with takeBack().
+    signal componentClicked(ComponentFrame frame)
     property bool showGrid: false
     // The component being dragged, or null when nothing is
     property ComponentFrame movingFrame: null
@@ -191,6 +194,29 @@ Flickable {
             components.replaceItem(frame.index, itemFor(left[0]), left[0])
         else
             components.replaceItem(frame.index, "GridItem", left.join("\n"))
+    }
+
+    // Where a component's grid cells are on screen, in `item`'s coordinates: smaller when zoomed out
+    function gridRectIn(frame, item) {
+        const left = xFor(frame.col), top = yFor(frame.row)
+        const topLeft = componentLayer.mapToItem(item, left, top)
+        const bottomRight = componentLayer.mapToItem(item, left + widthFor(frame.cols), top + heightFor(frame.rows))
+        return Qt.rect(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y)
+    }
+
+    // Makes a component follow its grid cells again, after it was dragged or shown maximized
+    function followGrid(frame) {
+        frame.x = Qt.binding(() => xFor(frame.col))
+        frame.y = Qt.binding(() => yFor(frame.row))
+        frame.width = Qt.binding(() => widthFor(frame.cols))
+        frame.height = Qt.binding(() => heightFor(frame.rows))
+    }
+
+    // Puts a component back on the workspace, after MaximizedViewItem showed it maximized
+    function takeBack(frame) {
+        frame.parent = componentLayer
+        followGrid(frame)
+        frame.maximized = false
     }
 
     // Everything in the workspace, drawn at the zoom. Inside it, positions are at full size.
@@ -383,12 +409,12 @@ Flickable {
                             workspace.merge(frame, target)
                         } else {
                             // Dropped: follow its grid cell again, which glides it into place
-                            x = Qt.binding(() => workspace.xFor(col))
-                            y = Qt.binding(() => workspace.yFor(row))
+                            workspace.followGrid(frame)
                             workspace.movingFrame = null
                         }
                     }
                     onCloseClicked: workspace.components.removeComponent(index)
+                onClicked: workspace.componentClicked(frame)
                 onFileDraggedOut: (file, scenePosition) => workspace.takeOutOfGrid(frame, file, scenePosition)
                         onResizeStarted: workspace.components.startChange()
                     onResizeMoved: (atLeft, atTop, pointer) => workspace.followResize(frame, atLeft, atTop, pointer)

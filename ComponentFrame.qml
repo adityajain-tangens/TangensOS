@@ -3,6 +3,7 @@ import QtQuick
 // The frame every component sits in. Drag it from anywhere to move it, or a corner to resize it.
 // What sits inside is a ComponentItem, named in the model (see WorkspaceModel.cpp). It's only shown:
 // it's turned off, so clicks, typing and the scroll wheel never reach it, and a web page can't be used.
+// Clicking it sends clicked(), and MaximizedViewItem shows it maximized, where it can be used.
 Rectangle {
     id: frame
 
@@ -16,6 +17,10 @@ Rectangle {
     required property string file
     required property string text
 
+    // True while it's shown big in MaximizedViewItem: what's inside can be used,
+    // and it can't be dragged, resized or deleted
+    property bool maximized: false
+
     // True while it's being dragged
     readonly property bool dragging: grab.active
     // Where the pointer is in the window while it's dragged
@@ -26,6 +31,8 @@ Rectangle {
     signal resizeMoved(bool atLeft, bool atTop, point pointer)
     // Sent when the X button at the top is clicked
     signal closeClicked()
+    // Sent when it's clicked anywhere else, without dragging
+    signal clicked()
     // Sent when a file is dragged out of the item inside and let go, like from a GridItem
     signal fileDraggedOut(string file, point scenePosition)
 
@@ -35,11 +42,12 @@ Rectangle {
     // In front of the others while it, or something in it, is dragged
     z: dragging || (content.item?.dragging ?? false) ? 1 : 0
 
-    // When its position changes because of the grid, glide there instead of jumping
-    Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-    Behavior on y { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-    Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-    Behavior on height { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+    // When its position changes because of the grid, glide there instead of jumping.
+    // A maximized one is moved by MaximizedViewItem's own animations instead.
+    Behavior on x { enabled: !frame.maximized; NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+    Behavior on y { enabled: !frame.maximized; NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+    Behavior on width { enabled: !frame.maximized; NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+    Behavior on height { enabled: !frame.maximized; NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
 
     onDraggingChanged: if (dragging) forceActiveFocus()
 
@@ -49,12 +57,19 @@ Rectangle {
 
         DragHandler {
             id: grab
+            enabled: !frame.maximized
             target: frame
         }
 
-        // Taking the focus closes an empty "Start typing..." field (EmptySpacePromptItem)
+        // Taking the focus closes an empty "Start typing..." field (EmptySpacePromptItem).
+        // The X button's own tap reaches here too, so that one isn't a click.
         TapHandler {
-            onTapped: frame.forceActiveFocus()
+            enabled: !frame.maximized
+            onTapped: {
+                frame.forceActiveFocus()
+                if (!closeHover.hovered)
+                    frame.clicked()
+            }
         }
     }
 
@@ -68,7 +83,8 @@ Rectangle {
         // Turned off, so it gets no clicks, typing, hovering or scrolling: a web page can't be used.
         // Items whose files can be dragged out, like GridItem, stay on so their files can be dragged.
         // They turn off everything else in them themselves.
-        enabled: item !== null && "draggedOut" in item
+        // When maximized, it's on and can be used.
+        enabled: frame.maximized || item !== null && "draggedOut" in item
         // Items that show a file, like ImageItem, follow this component's file. It's a binding, not a
         // one-time copy, because when a DropZoneItem is swapped for one (WorkspaceModel::replaceItem),
         // the new item loads before the file arrives.
@@ -77,6 +93,7 @@ Rectangle {
             if ("file" in item) item.file = Qt.binding(() => frame.file)
             if ("text" in item) item.text = frame.text
             if ("draggedOut" in item) item.draggedOut.connect(frame.fileDraggedOut)
+            if ("interactive" in item) item.interactive = Qt.binding(() => frame.maximized)
         }
     }
 
@@ -101,6 +118,7 @@ Rectangle {
 
     // The X button at the top right: deletes this component
     Text {
+        visible: !frame.maximized
         anchors.right: parent.right
         anchors.rightMargin: 12
         y: 18 - height / 2
@@ -123,6 +141,7 @@ Rectangle {
         Item {
             id: corner
             required property int index
+            visible: !frame.maximized
             // 0 is top left, 1 top right, 2 bottom left, 3 bottom right
             readonly property bool atLeft: index % 2 === 0
             readonly property bool atTop: index < 2
