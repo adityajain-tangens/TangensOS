@@ -5,7 +5,7 @@ import QtQuick
 // The other components on the workspace, shown small around the maximized ones (ComponentSnapshotItem),
 // laid out like on the workspace, around the smallest rectangle holding the maximized ones. Part of MaximizedViewItem.
 // Tapping one sends tapped(), and MaximizedViewItem shows it maximized too.
-// The biggest one fits in 300 × 300, and the others, and the distances between them, are shrunk by as much.
+// The biggest one fits in 200 × 200, and the others, and the distances between them, are shrunk by as much.
 // They're hidden until the pointer comes within 100 pixels of the window's edges. Then they slide in from the
 // side they're on while fading in. They stay while the pointer is over them or between them and the window's
 // edge, and slide back out and fade away once it's farther in than that.
@@ -51,8 +51,8 @@ Item {
     // The components still on the workspace: every one but the maximized ones, which have left it
     readonly property var shown: frames.length === 0 ? [] : workspace.frames()
 
-    // How much they're shrunk: the biggest one fits in 300 × 300
-    readonly property real shrink: 300 / Math.max(...shown.map(f => Math.max(f.area.width, f.area.height)))
+    // How much they're shrunk: the biggest one fits in 200 × 200
+    readonly property real shrink: 200 / Math.max(...shown.map(f => Math.max(f.area.width, f.area.height)))
 
     // Where a component's thumbnail would be if not moved out to the window's sides: shrunk around the
     // maximized one's middle, like on the workspace
