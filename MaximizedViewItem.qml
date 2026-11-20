@@ -1,160 +1,212 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 
-// Shows one component big and usable, in front of the workspace and OverlayView.
-// show() moves the component's frame itself in here, out of the workspace, and grows it from where it was.
-// Its corners resize it, like on the workspace, and its top bar moves it around the window.
-// Clicking outside it shrinks it back to its place and hands it back to the workspace. Being the same
-// frame, it keeps everything done to it, like a note's edits or the page a web view is on.
-// If it was resized here, its place on the workspace takes its new shape, keeping about the same size.
-// The other components are shown small around it (MaximizedComponentsViewItem).
+// Shows components big and usable, in front of the workspace and OverlayView.
+// show() moves a component's frame itself in here, out of the workspace, and grows it from where it was.
+// The other components are shown small around them (MaximizedComponentsViewItem). Tapping one of those shows
+// it here too. They're laid out in rows of two, the last one in the middle when there's an odd number,
+// placed like on the workspace: higher ones in higher rows, left ones on the left,
+// as big as fits in 80% of the window's width and 90% of its height, each keeping its shape.
+// Their corners resize them, like on the workspace, and their top bars move them around the window.
+// Clicking outside them shrinks them all back to their places and hands them back to the workspace. Being the
+// same frames, they keep everything done to them, like a note's edits or the page a web view is on.
+// One resized here takes its new shape in its place on the workspace, keeping about the same size.
 Item {
     id: view
 
     // The workspace the components come from and go back to
     required property Workspace workspace
-    // The component shown here, or null when none is
-    property ComponentFrame frame: null
-    // True while it shrinks back
+    // The components shown here, in the order they were shown
+    property list<ComponentFrame> frames
+    // The ones that were resized here
+    property list<ComponentFrame> resizedFrames
+    // True while they shrink back
     property bool shrinking: false
 
-    // The shown component's width divided by its height in the workspace
-    property real aspect: 1
-    // True once it's been resized here
-    property bool resized: false
-    // Where it was when the current resize started
-    property rect resizeStart
+    // Each shown component's width divided by its height, in the same order as frames
+    property list<real> aspects
 
-    // Where the component sits once grown: as big as fits in 80% of the window's width and 90% of its height,
-    // keeping its shape from the workspace, in the middle
-    readonly property rect grownRect: {
-        const w = Math.min(width * 0.8, height * 0.9 * aspect)
-        const h = w / aspect
-        return Qt.rect((width - w) / 2, (height - h) / 2, w, h)
+    // Where each shown component sits once grown, in the same order as frames: in rows of two, the last one
+    // in the middle when there's an odd number. All rows are as tall as each other, as tall as fits 80% of
+    // the window's width and 90% of its height, with 20 pixels between them.
+    readonly property list<rect> layout: {
+        const gap = 20
+        const rows = []
+        for (let i = 0; i < aspects.length; i += 2)
+            rows.push(aspects.slice(i, i + 2))
+        const sum = (row) => row.reduce((a, b) => a + b, 0)
+        let rowHeight = (height * 0.9 - gap * (rows.length - 1)) / rows.length
+        for (const row of rows)
+            rowHeight = Math.min(rowHeight, (width * 0.8 - gap * (row.length - 1)) / sum(row))
+        const top = (height - rowHeight * rows.length - gap * (rows.length - 1)) / 2
+        const rects = []
+        rows.forEach((row, r) => {
+            let x = (width - rowHeight * sum(row) - gap * (row.length - 1)) / 2
+            for (const aspect of row) {
+                rects.push(Qt.rect(x, top + r * (rowHeight + gap), rowHeight * aspect, rowHeight))
+                x += rowHeight * aspect + gap
+            }
+        })
+        return rects
     }
 
-    function show(component) {
-        if (frame !== null)
+    // Shows this component here too, growing from `from` in this item's coordinates:
+    // its thumbnail, or where it's drawn on the workspace when not given
+    function show(component, from) {
+        if (shrinking)
             return
-        // Moved in here, at the same spot on screen and the same size as it's drawn now
-        const from = workspace.areaIn(component, view)
+        from = from ?? workspace.areaIn(component, view)
         component.maximized = true
         component.parent = view
         component.x = from.x
         component.y = from.y
         component.width = from.width
         component.height = from.height
-        aspect = from.width / from.height
-        resized = false
-        frame = component
-        glideTo(grownRect)
+        // Placed like on the workspace: the higher ones in the higher rows, and in each row, left to right
+        const middle = (f) => Qt.point(f.area.x + f.area.width / 2, f.area.y + f.area.height / 2)
+        const byHeight = frames.concat([component]).sort((a, b) => middle(a).y - middle(b).y)
+        const ordered = []
+        for (let i = 0; i < byHeight.length; i += 2)
+            ordered.push(...byHeight.slice(i, i + 2).sort((a, b) => middle(a).x - middle(b).x))
+        // Each keeps the shape it has now: the ones already shown even if resized, the new one its shape on the workspace
+        aspects = ordered.map(f => f.width / f.height)
+        frames = ordered
+        glideTo(layout)
     }
 
     function hide() {
-        if (frame === null || shrinking)
+        if (frames.length === 0 || shrinking)
             return
         shrinking = true
-        if (resized)
+        for (const frame of resizedFrames)
             workspace.reshape(frame, frame.width / frame.height)
-        glideTo(workspace.areaIn(frame, view))
+        glideTo(frames.map(f => workspace.areaIn(f, view)))
     }
 
-    // Moves and sizes the component to this rectangle, animated, from wherever it is now
-    function glideTo(rect) {
+    // Moves and sizes each shown component to the rectangle at the same place in `rects`,
+    // animated, from wherever it is now
+    property list<rect> glideStarts
+    property list<rect> glideEnds
+    property real glided: 0
+    function glideTo(rects) {
         glide.stop()
-        // Let go of following the window's size (see glide's onFinished), so the animation alone moves it
-        frame.x = frame.x
-        frame.y = frame.y
-        frame.width = frame.width
-        frame.height = frame.height
-        glideX.to = rect.x
-        glideY.to = rect.y
-        glideWidth.to = rect.width
-        glideHeight.to = rect.height
+        glideStarts = frames.map(f => Qt.rect(f.x, f.y, f.width, f.height))
+        glideEnds = rects
         glide.start()
     }
+    onGlidedChanged: {
+        frames.forEach((frame, i) => {
+            const from = glideStarts[i], to = glideEnds[i]
+            frame.x = from.x + (to.x - from.x) * glided
+            frame.y = from.y + (to.y - from.y) * glided
+            frame.width = from.width + (to.width - from.width) * glided
+            frame.height = from.height + (to.height - from.height) * glided
+        })
+    }
 
-    ParallelAnimation {
+    NumberAnimation {
         id: glide
-        NumberAnimation { id: glideX; target: view.frame; property: "x"; duration: 250; easing.type: Easing.OutCubic }
-        NumberAnimation { id: glideY; target: view.frame; property: "y"; duration: 250; easing.type: Easing.OutCubic }
-        NumberAnimation { id: glideWidth; target: view.frame; property: "width"; duration: 250; easing.type: Easing.OutCubic }
-        NumberAnimation { id: glideHeight; target: view.frame; property: "height"; duration: 250; easing.type: Easing.OutCubic }
+        target: view
+        property: "glided"
+        from: 0
+        to: 1
+        duration: 250
+        easing.type: Easing.OutCubic
 
         onFinished: {
             if (view.shrinking) {
-                // Back in its place: the workspace has it again
-                view.workspace.takeBack(view.frame)
-                view.frame = null
+                // Back in their places: the workspace has them again
+                for (const frame of view.frames)
+                    view.workspace.takeBack(frame)
+                view.frames = []
+                view.resizedFrames = []
                 view.shrinking = false
             } else {
                 // Grown: follow the window's size from now on
-                view.frame.x = Qt.binding(() => view.grownRect.x)
-                view.frame.y = Qt.binding(() => view.grownRect.y)
-                view.frame.width = Qt.binding(() => view.grownRect.width)
-                view.frame.height = Qt.binding(() => view.grownRect.height)
+                view.frames.forEach((frame, i) => {
+                    frame.x = Qt.binding(() => view.layout[i].x)
+                    frame.y = Qt.binding(() => view.layout[i].y)
+                    frame.width = Qt.binding(() => view.layout[i].width)
+                    frame.height = Qt.binding(() => view.layout[i].height)
+                })
             }
         }
     }
 
-    // Resizing by a corner: that corner follows the pointer and the opposite one stays put,
-    // never smaller than on the workspace's minimum, nor past the window's edges.
-    // From then on it keeps that size, and no longer follows the window's size.
-    Connections {
-        target: view.frame
-        // Moved by its top bar: it stays where it's let go, instead of in the middle
-        function onMovingChanged() {
-            if (view.frame.moving && !view.shrinking)
-                glide.stop()
-        }
-        function onResizeStarted() {
-            glide.stop()
-            view.resized = true
-            view.resizeStart = Qt.rect(view.frame.x, view.frame.y, view.frame.width, view.frame.height)
-        }
-        function onResizeMoved(atLeft, atTop, moved) {
-            const start = view.resizeStart
-            let left = start.x, top = start.y, right = start.x + start.width, bottom = start.y + start.height
-            if (atLeft)
-                left = Math.max(0, Math.min(left + moved.x, right - 114))
-            else
-                right = Math.min(view.width, Math.max(right + moved.x, left + 114))
-            if (atTop)
-                top = Math.max(0, Math.min(top + moved.y, bottom - 72))
-            else
-                bottom = Math.min(view.height, Math.max(bottom + moved.y, top + 72))
-            view.frame.x = left
-            view.frame.y = top
-            view.frame.width = right - left
-            view.frame.height = bottom - top
+    // For each shown component: moving it by its top bar or resizing it by a corner.
+    // A resized one's corner follows the pointer and the opposite one stays put, never smaller than on the
+    // workspace's minimum, nor past the window's edges.
+    // From then on it keeps where it was put, and no longer follows the window's size.
+    Repeater {
+        model: view.frames
+        Item {
+            id: watcher
+            required property ComponentFrame modelData
+            // Where it was when the current resize started
+            property rect resizeStart
+
+            Connections {
+                target: watcher.modelData
+                function onMovingChanged() {
+                    if (watcher.modelData.moving && !view.shrinking)
+                        glide.stop()
+                }
+                function onResizeStarted() {
+                    glide.stop()
+                    const frame = watcher.modelData
+                    if (!view.resizedFrames.includes(frame))
+                        view.resizedFrames.push(frame)
+                    watcher.resizeStart = Qt.rect(frame.x, frame.y, frame.width, frame.height)
+                }
+                function onResizeMoved(atLeft, atTop, moved) {
+                    const start = watcher.resizeStart
+                    let left = start.x, top = start.y, right = start.x + start.width, bottom = start.y + start.height
+                    if (atLeft)
+                        left = Math.max(0, Math.min(left + moved.x, right - 114))
+                    else
+                        right = Math.min(view.width, Math.max(right + moved.x, left + 114))
+                    if (atTop)
+                        top = Math.max(0, Math.min(top + moved.y, bottom - 72))
+                    else
+                        bottom = Math.min(view.height, Math.max(bottom + moved.y, top + 72))
+                    const frame = watcher.modelData
+                    frame.x = left
+                    frame.y = top
+                    frame.width = right - left
+                    frame.height = bottom - top
+                }
+            }
         }
     }
 
-    // The other components, small, around it. In front of it, as they can slide over its edges.
+    // The other components, small, around them. In front of them, as they can slide over their edges.
     MaximizedComponentsViewItem {
         anchors.fill: parent
         z: 1
         workspace: view.workspace
-        frame: view.frame
-        // Only once it's done growing, and gone as soon as it starts shrinking back. Hidden by opacity,
+        frames: view.frames
+        // Only once they're done growing, and gone as soon as they start shrinking back. Hidden by opacity,
         // not visible, so it keeps following the pointer to tell when it's near the window's edges.
         opacity: !glide.running && !view.shrinking ? 1 : 0
+        onTapped: (component, from) => view.show(component, from)
     }
 
-    // Dims what's behind the component while it's shown. Clicks anywhere outside it shrink it back,
+    // Dims what's behind them while they're shown. Clicks anywhere outside them shrink them back,
     // and nothing behind gets clicks or wheel turns meanwhile.
     Rectangle {
         anchors.fill: parent
-        visible: view.frame !== null
+        visible: view.frames.length > 0
         color: "black"
-        opacity: view.frame !== null && !view.shrinking ? 0.25 : 0
+        opacity: view.frames.length > 0 && !view.shrinking ? 0.25 : 0
         Behavior on opacity { NumberAnimation { duration: 250 } }
 
         MouseArea {
             id: outside
             anchors.fill: parent
             onClicked: (mouse) => {
-                // Clicks on the component that it doesn't use itself, like on its top strip, land here too
-                const onFrame = view.frame.contains(view.frame.mapFromItem(outside, mouse.x, mouse.y))
+                // Clicks on them that they don't use themselves, like on their top strips, land here too
+                const onFrame = view.frames.some(f => f.contains(f.mapFromItem(outside, mouse.x, mouse.y)))
                 if (!onFrame)
                     view.hide()
             }
