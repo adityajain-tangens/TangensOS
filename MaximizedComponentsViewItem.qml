@@ -63,12 +63,28 @@ Item {
                        area.width * shrink, area.height * shrink)
     }
 
-    // The thumbnails past each side of the maximized one, where shrunk() puts them
+    // Where a component counts as being on the workspace: where it is, or, when it's between the maximized
+    // ones (inside the smallest rectangle holding them), just past the side of that rectangle its middle is nearest
+    function outside(area) {
+        const m = maxArea
+        if (area.x >= m.x + m.width || area.x + area.width <= m.x || area.y >= m.y + m.height || area.y + area.height <= m.y)
+            return area
+        const middleX = area.x + area.width / 2, middleY = area.y + area.height / 2
+        const toLeft = middleX - m.x, toRight = m.x + m.width - middleX
+        const toTop = middleY - m.y, toBottom = m.y + m.height - middleY
+        const nearest = Math.min(toLeft, toRight, toTop, toBottom)
+        if (nearest === toLeft) return Qt.rect(m.x - area.width, area.y, area.width, area.height)
+        if (nearest === toRight) return Qt.rect(m.x + m.width, area.y, area.width, area.height)
+        if (nearest === toTop) return Qt.rect(area.x, m.y - area.height, area.width, area.height)
+        return Qt.rect(area.x, m.y + m.height, area.width, area.height)
+    }
+
+    // The thumbnails past each side of the maximized ones, where shrunk() puts them
     readonly property var groups: {
         if (frames.length === 0)
             return { left: [], right: [], top: [], bottom: [] }
         const m = maxArea
-        const past = (test) => shown.filter(f => test(f.area)).map(f => shrunk(f.area))
+        const past = (test) => shown.map(f => outside(f.area)).filter(test).map(shrunk)
         return {
             left: past(a => a.x + a.width <= m.x),
             right: past(a => a.x >= m.x + m.width),
@@ -107,6 +123,7 @@ Item {
         if (frames.length === 0)
             return Qt.rect(0, 0, 0, 0)
         const m = maxArea
+        area = outside(area)
         const r = shrunk(area)
         const slide = (1 - reveal) * 100
         if (area.x + area.width <= m.x) r.x -= shifts.left + slide
