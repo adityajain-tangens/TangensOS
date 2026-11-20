@@ -14,6 +14,8 @@ Column {
     signal addNote(string text)
     // Sent when "Add an image/video" is clicked
     signal addDropZone()
+    // Sent when "Add an app" is clicked
+    signal addApp()
 
     spacing: 8
 
@@ -31,7 +33,8 @@ Column {
         buttons: [
             { icon: "🔍", title: "Search on the web" },
             { icon: "🖼️", title: "Add an image/video" },
-            { icon: "📝", title: "Add a note" }
+            { icon: "📝", title: "Add a note" },
+            { icon: "🧩", title: "Add an app" }
         ]
         onClicked: (index) => {
             if (index === 0)
@@ -40,6 +43,8 @@ Column {
                 prompt.addDropZone()
             else if (index === 2)
                 prompt.addNote(textField.text)
+            else if (index === 3)
+                prompt.addApp()
         }
     }
 }

@@ -75,6 +75,16 @@ Item {
         glideTo(layout)
     }
 
+    // Gives a shown component this shape (width divided by height), here and back on the workspace
+    function reshape(frame, aspect) {
+        const changed = Array.from(aspects)
+        changed[frames.indexOf(frame)] = aspect
+        aspects = changed
+        if (!resizedFrames.includes(frame))
+            resizedFrames.push(frame)
+        glideTo(layout)
+    }
+
     function hide() {
         if (frames.length === 0 || shrinking)
             return
@@ -148,6 +158,10 @@ Item {
 
             Connections {
                 target: watcher.modelData
+                function onReshapeWanted(aspect) {
+                    if (!view.shrinking)
+                        view.reshape(watcher.modelData, aspect)
+                }
                 function onMovingChanged() {
                     if (watcher.modelData.moving && !view.shrinking)
                         glide.stop()

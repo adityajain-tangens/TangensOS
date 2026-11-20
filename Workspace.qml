@@ -307,6 +307,8 @@ Flickable {
                 onSearchWeb: (text) => addHere("WebViewItem", text)
                 // A spot to drop an image, video or PDF onto
                 onAddDropZone: addHere("DropZoneItem", "")
+                // A picture of an open app's window, once one is chosen
+                onAddApp: addHere("AppSnapshotItem", "")
             }
         }
 
@@ -348,6 +350,8 @@ Flickable {
                     onCloseClicked: workspace.components.removeComponent(index)
                     onClicked: workspace.componentClicked(frame)
                     onFileDraggedOut: (file, scenePosition) => workspace.takeOutOfGrid(frame, file, scenePosition)
+                    // Reshaped while maximized, MaximizedViewItem reshapes it instead
+                    onReshapeWanted: (aspect) => { if (!maximized) workspace.reshape(frame, aspect) }
                     // Resized while maximized, MaximizedViewItem resizes it instead
                     onResizeStarted: if (!maximized) workspace.components.startChange()
                     onResizeMoved: (atLeft, atTop, moved) => { if (!maximized) workspace.followResize(frame, atLeft, atTop, moved) }

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(Tangens VERSION 0.1 LANGUAGES CXX)
+project(Tangens VERSION 0.1 LANGUAGES CXX OBJCXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -32,12 +32,18 @@ qt_add_qml_module(appTangens
         MaximizedViewItem.qml
         MaximizedComponentsViewItem.qml
         ComponentSnapshotItem.qml
+        AppSnapshotItem.qml
     SOURCES
         WorkspaceModel.h
         WorkspaceModel.cpp
         TextFormatter.h
         TextFormatter.cpp
+        AppWindows.h
+        AppWindows.mm
 )
+
+# AppWindows.mm lists the open apps and takes pictures of their windows
+set_source_files_properties(AppWindows.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
 
 set_target_properties(appTangens PROPERTIES
     MACOSX_BUNDLE TRUE
@@ -46,4 +52,5 @@ set_target_properties(appTangens PROPERTIES
 
 target_link_libraries(appTangens
     PRIVATE Qt6::Quick Qt6::Multimedia Qt6::PdfQuick Qt6::WebEngineQuick
+    "-framework AppKit" "-framework ScreenCaptureKit"
 )

@@ -35,6 +35,17 @@ Rectangle {
     signal clicked()
     // Sent when a file is dragged out of the item inside and let go, like from a GridItem
     signal fileDraggedOut(string file, point scenePosition)
+    // Sent when the item inside wants another shape, like AppSnapshotItem for its picture: the shape
+    // (width divided by height) the whole frame should take for it, keeping about the same size
+    signal reshapeWanted(real aspect)
+
+    // The frame's shape that gives what's inside this shape, keeping what's inside about the same size
+    function reshapeFor(aspect) {
+        const size = content.width * content.height
+        const width = Math.sqrt(size * aspect) + content.anchors.leftMargin + content.anchors.rightMargin
+        const height = Math.sqrt(size / aspect) + content.anchors.topMargin + content.anchors.bottomMargin
+        reshapeWanted(width / height)
+    }
 
     radius: 12
     color: "white"
@@ -110,6 +121,7 @@ Rectangle {
             if ("file" in item) item.file = Qt.binding(() => frame.file)
             if ("text" in item) item.text = frame.text
             if ("draggedOut" in item) item.draggedOut.connect(frame.fileDraggedOut)
+            if ("shaped" in item) item.shaped.connect(frame.reshapeFor)
             if ("interactive" in item) item.interactive = Qt.binding(() => frame.maximized)
         }
     }
