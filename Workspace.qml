@@ -162,12 +162,12 @@ Flickable {
             components.replaceItem(frame.index, "GridItem", left.join("\n"))
     }
 
-    // Gives a component this shape (width divided by height), keeping about the same size: the same area,
-    // and the same top-left corner. Components in the way are pushed aside.
+    // Gives what's inside a component this shape (width divided by height), keeping about the same size:
+    // the same area inside, and the same top-left corner. Components in the way are pushed aside.
     function reshape(frame, aspect) {
-        const size = frame.area.width * frame.area.height
-        const width = Math.round(Math.sqrt(size * aspect))
-        const height = Math.round(Math.sqrt(size / aspect))
+        const size = (frame.area.width - frame.chrome.width) * (frame.area.height - frame.chrome.height)
+        const width = Math.round(Math.sqrt(size * aspect) + frame.chrome.width)
+        const height = Math.round(Math.sqrt(size / aspect) + frame.chrome.height)
         components.startChange()
         components.resizeComponent(frame.index, false, false, width - frame.area.width, height - frame.area.height)
     }

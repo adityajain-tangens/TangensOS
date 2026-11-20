@@ -36,7 +36,7 @@ Rectangle {
     // Sent when a file is dragged out of the item inside and let go, like from a GridItem
     signal fileDraggedOut(string file, point scenePosition)
     // Sent when the item inside wants another shape, like AppSnapshotItem for its picture: the shape
-    // (width divided by height) the whole frame should take for it, keeping about the same size
+    // (width divided by height) of what's inside, not of the whole frame
     signal reshapeWanted(real aspect)
     // Sent when the item inside wants to be at a certain place on screen, like AppSnapshotItem over its
     // app's window: where the whole frame should be for it, in its parent's coordinates
@@ -50,13 +50,12 @@ Rectangle {
                            area.height + content.anchors.topMargin + content.anchors.bottomMargin))
     }
 
-    // The frame's shape that gives what's inside this shape, keeping what's inside about the same size
-    function reshapeFor(aspect) {
-        const size = content.width * content.height
-        const width = Math.sqrt(size * aspect) + content.anchors.leftMargin + content.anchors.rightMargin
-        const height = Math.sqrt(size / aspect) + content.anchors.topMargin + content.anchors.bottomMargin
-        reshapeWanted(width / height)
-    }
+    // How much wider and taller the frame is than what's inside: its top bar and margins
+    readonly property size chrome: Qt.size(content.anchors.leftMargin + content.anchors.rightMargin,
+                                           content.anchors.topMargin + content.anchors.bottomMargin)
+    // The shape (width divided by height) of what's inside. Shapes are kept by this, not by the whole
+    // frame's: the top bar takes a bigger share of a small frame than of a big one.
+    readonly property real contentAspect: (width - chrome.width) / (height - chrome.height)
 
     radius: 12
     color: "white"
@@ -132,7 +131,7 @@ Rectangle {
             if ("file" in item) item.file = Qt.binding(() => frame.file)
             if ("text" in item) item.text = frame.text
             if ("draggedOut" in item) item.draggedOut.connect(frame.fileDraggedOut)
-            if ("shaped" in item) item.shaped.connect(frame.reshapeFor)
+            if ("shaped" in item) item.shaped.connect(frame.reshapeWanted)
             if ("screenAreaWanted" in item) item.screenAreaWanted.connect(frame.areaFor)
             if ("interactive" in item) item.interactive = Qt.binding(() => frame.maximized)
         }
