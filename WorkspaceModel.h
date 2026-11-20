@@ -4,18 +4,18 @@
 #include <QRect>
 #include <QtQml/qqmlregistration.h>
 
-// The components on the workspace and where each one sits on the grid.
-// Positions and sizes are in grid cells. The grid has no end in any direction, so a cell
-// can be negative, like col -2. Components never overlap.
+// The components on the workspace and where each one sits on it.
+// Positions and sizes are in pixels, at full size. The workspace has no end in any direction, so a
+// position can be negative. Components never overlap, and always keep a small gap between them.
 class WorkspaceModel : public QAbstractListModel
 {
     Q_OBJECT
     QML_ELEMENT
-    // The smallest rectangle of cells holding every component
+    // The smallest rectangle holding every component
     Q_PROPERTY(QRect bounds READ bounds NOTIFY boundsChanged)
 
 public:
-    enum Role { ColRole = Qt::UserRole, RowRole, ColsRole, RowsRole, ItemRole, FileRole, TextRole };
+    enum Role { AreaRole = Qt::UserRole, ItemRole, FileRole, TextRole };
 
     explicit WorkspaceModel(QObject *parent = nullptr);
 
@@ -23,16 +23,16 @@ public:
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
 
-    // Called from QML: when a move or resize starts, and each time it reaches a new cell
+    // Called from QML: when a move or resize starts, and each time it changes.
+    // A resize moves the corner given by atLeft and atTop by (dx, dy) from where it started.
     Q_INVOKABLE void startChange();
-    Q_INVOKABLE void moveComponent(int component, int col, int row);
-    Q_INVOKABLE void resizeComponent(int component, int left, int top, int right, int bottom);
+    Q_INVOKABLE void moveComponent(int component, int x, int y);
+    Q_INVOKABLE void resizeComponent(int component, bool atLeft, bool atTop, int dx, int dy);
 
     // Called from QML when something is dropped on the workspace, or a note is added. Adds a component
-    // of this size holding this item and file (or starting text), at the cell (col, row) or the nearest
-    // free spot to it. Does nothing and returns false if that cell is already covered by a component.
-    Q_INVOKABLE bool addComponent(const QString &item, const QString &file, int col, int row, int cols, int rows,
-                                  const QString &text = {});
+    // holding this item and file (or starting text), with its top-left corner at (x, y) or at the nearest
+    // free spot to it. Does nothing and returns false if (x, y) is already on a component.
+    Q_INVOKABLE bool addComponent(const QString &item, const QString &file, int x, int y, const QString &text = {});
 
     // Called from QML when a file is dropped on a DropZoneItem: the component
     // now holds this item showing this file instead
@@ -48,15 +48,21 @@ signals:
 
 private:
     void place(int component, const QRect &moved);
-    QRect nearestFreeSpot(const QRect &component, const QList<QRect> &taken) const;
+    static bool tooClose(const QRect &a, const QRect &b);
+    static QRect nearestFreeSpot(const QRect &component, const QList<QRect> &taken);
 
+    // The space kept between components
+    static constexpr int gap = 12;
     // The smallest a component can be
-    static constexpr int minCols = 2;
-    static constexpr int minRows = 2;
+    static constexpr int minWidth = 114;
+    static constexpr int minHeight = 72;
+    // The size of a new component
+    static constexpr int newWidth = 240;
+    static constexpr int newHeight = 240;
 
-    // Each component as a rectangle of cells: x = col, y = row, width = cols, height = rows
+    // Where each component is, as a rectangle
     QList<QRect> m_components;
-    // Where every component was when the drag started
+    // Where every component was when the change started
     QList<QRect> m_atStart;
     // What sits inside each component, in the same order as m_components
     QList<QString> m_items;

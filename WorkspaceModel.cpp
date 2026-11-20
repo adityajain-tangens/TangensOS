@@ -1,18 +1,18 @@
 #include "WorkspaceModel.h"
 
 #include <algorithm>
-#include <climits>
+#include <limits>
 
 WorkspaceModel::WorkspaceModel(QObject *parent)
     : QAbstractListModel(parent)
 {
-    // The starting components: col, row, cols, rows
+    // The starting components: x, y, width, height
     m_components = {
-        QRect(0, 0, 6, 9),
-        QRect(6, 0, 3, 4),
-        QRect(9, 0, 3, 4),
-        QRect(6, 4, 6, 5),
-        QRect(0, 9, 4, 6),
+        QRect(0, 0, 366, 366),
+        QRect(378, 0, 177, 156),
+        QRect(567, 0, 177, 156),
+        QRect(378, 168, 366, 198),
+        QRect(0, 378, 240, 240),
     };
     m_atStart = m_components;
 
@@ -31,12 +31,8 @@ int WorkspaceModel::rowCount(const QModelIndex &parent) const
 
 QVariant WorkspaceModel::data(const QModelIndex &index, int role) const
 {
-    const QRect &component = m_components.at(index.row());
     switch (role) {
-    case ColRole: return component.x();
-    case RowRole: return component.y();
-    case ColsRole: return component.width();
-    case RowsRole: return component.height();
+    case AreaRole: return m_components.at(index.row());
     case ItemRole: return m_items.at(index.row());
     case FileRole: return m_files.at(index.row());
     case TextRole: return m_texts.at(index.row());
@@ -47,21 +43,18 @@ QVariant WorkspaceModel::data(const QModelIndex &index, int role) const
 // The names QML uses for each value
 QHash<int, QByteArray> WorkspaceModel::roleNames() const
 {
-    return { { ColRole, "col" }, { RowRole, "row" }, { ColsRole, "cols" }, { RowsRole, "rows" },
-             { ItemRole, "item" }, { FileRole, "file" }, { TextRole, "text" } };
+    return { { AreaRole, "area" }, { ItemRole, "item" }, { FileRole, "file" }, { TextRole, "text" } };
 }
 
-bool WorkspaceModel::addComponent(const QString &item, const QString &file, int col, int row, int cols, int rows,
-                                  const QString &text)
+bool WorkspaceModel::addComponent(const QString &item, const QString &file, int x, int y, const QString &text)
 {
-    const QPoint cell(col, row);
+    const QPoint spot(x, y);
     for (const QRect &other : m_components) {
-        if (other.contains(cell))
+        if (other.contains(spot))
             return false;
     }
 
-    QRect component(col, row, cols, rows);
-    component = nearestFreeSpot(component, m_components);
+    const QRect component = nearestFreeSpot(QRect(x, y, newWidth, newHeight), m_components);
 
     const int at = m_components.size();
     beginInsertRows({}, at, at);
@@ -98,63 +91,64 @@ void WorkspaceModel::startChange()
     m_atStart = m_components;
 }
 
-// Moves a component to a new cell, keeping its size
-void WorkspaceModel::moveComponent(int component, int col, int row)
+// Moves a component so its top-left corner is at (x, y), keeping its size
+void WorkspaceModel::moveComponent(int component, int x, int y)
 {
     QRect moved = m_atStart.at(component);
-    moved.moveTo(col, row);
+    moved.moveTo(x, y);
     place(component, moved);
 }
 
-// Resizes a component by moving its edges. Edges are grid lines: a component at column 6
-// that's 3 columns wide runs from line 6 to line 9. Only the edges that moved are changed.
-void WorkspaceModel::resizeComponent(int component, int left, int top, int right, int bottom)
+// Moves one corner of a component by (dx, dy) from where it was when the resize started.
+// The opposite corner stays put, and it never gets smaller than the minimum size.
+void WorkspaceModel::resizeComponent(int component, bool atLeft, bool atTop, int dx, int dy)
 {
     const QRect start = m_atStart.at(component);
-    const int startRight = start.x() + start.width();
-    const int startBottom = start.y() + start.height();
+    int left = start.x();
+    int top = start.y();
+    int right = start.x() + start.width();
+    int bottom = start.y() + start.height();
 
-    // Keep each edge that moved at least the minimum size from the opposite edge
-    if (left != start.x())
-        left = qMin(left, startRight - minCols);
-    if (right != startRight)
-        right = qMax(start.x() + minCols, right);
-    if (top != start.y())
-        top = qMin(top, startBottom - minRows);
-    if (bottom != startBottom)
-        bottom = qMax(start.y() + minRows, bottom);
+    if (atLeft)
+        left = qMin(left + dx, right - minWidth);
+    else
+        right = qMax(right + dx, left + minWidth);
+    if (atTop)
+        top = qMin(top + dy, bottom - minHeight);
+    else
+        bottom = qMax(bottom + dy, top + minHeight);
 
     place(component, QRect(left, top, right - left, bottom - top));
 }
 
-// Puts one component at a new rectangle of cells. Any component it now covers moves to the
+// Puts one component at a new rectangle. Any component now too close to it moves to the
 // nearest free spot. Always works from where things were when the change started, so a pushed
 // component goes back if the changed one moves away again.
 void WorkspaceModel::place(int component, const QRect &moved)
 {
-    // First everything that stays: the changed component, and every component it doesn't cover
+    // First everything that stays: the changed component, and every component not too close to it
     QList<QRect> result = m_atStart;
     result[component] = moved;
     QList<QRect> taken { moved };
     for (int i = 0; i < result.size(); ++i) {
-        if (i != component && !result.at(i).intersects(moved))
+        if (i != component && !tooClose(result.at(i), moved))
             taken.append(result.at(i));
     }
 
-    // Then each covered component, into the nearest spot that's still free
+    // Then each one that is, into the nearest spot that's still free
     for (int i = 0; i < result.size(); ++i) {
-        if (i != component && result.at(i).intersects(moved)) {
+        if (i != component && tooClose(result.at(i), moved)) {
             result[i] = nearestFreeSpot(result.at(i), taken);
             taken.append(result.at(i));
         }
     }
 
     m_components = result;
-    emit dataChanged(index(0), index(m_components.size() - 1), { ColRole, RowRole, ColsRole, RowsRole });
+    emit dataChanged(index(0), index(m_components.size() - 1), { AreaRole });
     emit boundsChanged();
 }
 
-// The smallest rectangle of cells holding every component
+// The smallest rectangle holding every component
 QRect WorkspaceModel::bounds() const
 {
     QRect all;
@@ -163,30 +157,34 @@ QRect WorkspaceModel::bounds() const
     return all;
 }
 
-// The free spot of the same size that's closest to where the component is now
-QRect WorkspaceModel::nearestFreeSpot(const QRect &component, const QList<QRect> &taken) const
+// True when two components overlap, or are less than the gap apart
+bool WorkspaceModel::tooClose(const QRect &a, const QRect &b)
 {
-    // Past the outermost components there's always room, so there's no need to look further out
-    int left = component.x();
-    int top = component.y();
-    int right = component.x();
-    int bottom = component.y();
+    return a.adjusted(-gap, -gap, gap, gap).intersects(b);
+}
+
+// The free spot of the same size that's closest to where the component is now.
+// The closest spot either is where it is, or touches the gap around other components on one or two sides.
+// So only these are tried: its own x and y, and the x and y that put it just left, right, above or below each other one.
+QRect WorkspaceModel::nearestFreeSpot(const QRect &component, const QList<QRect> &taken)
+{
+    QList<int> xs { component.x() };
+    QList<int> ys { component.y() };
     for (const QRect &other : taken) {
-        left = qMin(left, other.x() - component.width());
-        top = qMin(top, other.y() - component.height());
-        right = qMax(right, other.x() + other.width());
-        bottom = qMax(bottom, other.y() + other.height());
+        xs << other.x() - gap - component.width() << other.x() + other.width() + gap;
+        ys << other.y() - gap - component.height() << other.y() + other.height() + gap;
     }
 
     QRect best;
-    int bestDistance = INT_MAX;
-    for (int row = top; row <= bottom; ++row) {
-        for (int col = left; col <= right; ++col) {
-            const QRect spot(col, row, component.width(), component.height());
-            const bool free = std::none_of(taken.begin(), taken.end(),
-                                           [&](const QRect &other) { return other.intersects(spot); });
-            const int distance = qAbs(col - component.x()) + qAbs(row - component.y());
-            if (free && distance < bestDistance) {
+    qint64 bestDistance = std::numeric_limits<qint64>::max();
+    for (int x : xs) {
+        for (int y : ys) {
+            const QRect spot(x, y, component.width(), component.height());
+            const qint64 dx = x - component.x();
+            const qint64 dy = y - component.y();
+            const qint64 distance = dx * dx + dy * dy;
+            if (distance < bestDistance
+                && std::none_of(taken.begin(), taken.end(), [&](const QRect &other) { return tooClose(other, spot); })) {
                 best = spot;
                 bestDistance = distance;
             }

@@ -9,10 +9,8 @@ Rectangle {
 
     // Filled in from this component's entry in the model
     required property int index
-    required property int col
-    required property int row
-    required property int cols
-    required property int rows
+    // Its place on the workspace, at full size
+    required property rect area
     required property string item
     required property string file
     required property string text
@@ -26,9 +24,9 @@ Rectangle {
     // Where the pointer is in the window while it's dragged
     readonly property point dragPoint: grab.centroid.scenePosition
 
-    // Sent while a corner is dragged: which corner, and where the pointer is on screen
+    // Sent while a corner is dragged: which corner, and how far the pointer has moved on screen since it was pressed
     signal resizeStarted()
-    signal resizeMoved(bool atLeft, bool atTop, point pointer)
+    signal resizeMoved(bool atLeft, bool atTop, point moved)
     // Sent when the X button at the top is clicked
     signal closeClicked()
     // Sent when it's clicked anywhere else, without dragging
@@ -42,7 +40,7 @@ Rectangle {
     // In front of the others while it, or something in it, is dragged
     z: dragging || (content.item?.dragging ?? false) ? 1 : 0
 
-    // When its position changes because of the grid, glide there instead of jumping.
+    // When the model moves it, like when it's pushed aside, glide there instead of jumping.
     // A maximized one is moved by MaximizedViewItem's own animations instead.
     Behavior on x { enabled: !frame.maximized; NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
     Behavior on y { enabled: !frame.maximized; NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
@@ -107,11 +105,11 @@ Rectangle {
         color: Qt.hsla((frame.index * 0.17) % 1, 0.5, 0.85, 1)
     }
 
-    // Its grid position, to check the layout
+    // Its place on the workspace, to check the layout
     Text {
         x: 12
         y: 10
-        text: "col " + frame.col + ", row " + frame.row + "  ·  " + frame.cols + " × " + frame.rows
+        text: frame.area.x + ", " + frame.area.y + "  ·  " + frame.area.width + " × " + frame.area.height
         color: "#555"
         font.pixelSize: 13
     }
@@ -159,7 +157,8 @@ Rectangle {
             DragHandler {
                 target: null
                 onActiveChanged: if (active) frame.resizeStarted()
-                onCentroidChanged: if (active) frame.resizeMoved(corner.atLeft, corner.atTop, centroid.scenePosition)
+                onCentroidChanged: if (active) frame.resizeMoved(corner.atLeft, corner.atTop,
+                    Qt.point(centroid.scenePosition.x - centroid.scenePressPosition.x, centroid.scenePosition.y - centroid.scenePressPosition.y))
             }
         }
     }

@@ -3,8 +3,8 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 
-// The area that holds the components. It lays them out on a grid with no end in any direction,
-// and is dragged to scroll in every direction. There are always a few empty columns and rows around the
+// The area that holds the components. They can go anywhere on it: it has no end in any direction,
+// and is dragged to scroll in every direction. There's always some empty space around the
 // components on every side. Its layout doesn't depend on the window's size.
 // Pinching the trackpad or turning the mouse wheel zooms between two levels: full size, and half size.
 // Two fingers on the trackpad drag it, like the mouse does.
@@ -15,27 +15,19 @@ Flickable {
     // Sent when a component is clicked, without dragging it. Main.qml shows it maximized
     // (MaximizedViewItem), which takes it off the workspace until it hands it back with takeBack().
     signal componentClicked(ComponentFrame frame)
-    property bool showGrid: false
     // The component being dragged, or null when nothing is
     property ComponentFrame movingFrame: null
     // The component the dragged one will join in a grid if let go now, or null
     property ComponentFrame mergeTarget: null
-    // The cell the dragged component started from
-    property point dragStartCell
+    // Where the dragged component started from
+    property point dragStart
 
     // The items that can go in a grid, and so can be merged by dragging one onto another
     readonly property var mergeable: ["ImageItem", "VideoItem", "PDFItem", "GridItem"]
 
-    // Grid settings, the same as the Electron prototype
-    readonly property real columnWidth: 51
-    readonly property real rowHeight: 30
-    readonly property real gap: 12
-    readonly property real padding: 16
-    readonly property int spareRows: 15
-    readonly property int spareColumns: 15
-
-    readonly property real colStep: columnWidth + gap
-    readonly property real rowStep: rowHeight + gap
+    // The empty space kept past the components on the left and right, and on the top and bottom
+    readonly property real spareWidth: 961
+    readonly property real spareHeight: 646
 
     // Where the components were when the drag started. While a component is dragged, the space
     // before the first components only grows: if it shrank, the view would snap over and the
@@ -49,29 +41,19 @@ Flickable {
     property point zoomSpot
     property point zoomSpotInWindow
 
-    // How far the space reaches at full size: before cell (0, 0) on the left and top, and after it on the right and bottom.
-    // A few empty columns and rows past the components on every side. Before cell (0, 0), it's negative when
-    // the first components are after it.
-    readonly property real spaceLeft: (spareColumns - (movingFrame !== null ? Math.min(components.bounds.x, boundsAtDragStart.x) : components.bounds.x)) * colStep
-    readonly property real spaceTop: (spareRows - (movingFrame !== null ? Math.min(components.bounds.y, boundsAtDragStart.y) : components.bounds.y)) * rowStep
-    readonly property real spaceRight: xFor(components.bounds.x + components.bounds.width + spareColumns) - gap + padding
-    readonly property real spaceBottom: yFor(components.bounds.y + components.bounds.height + spareRows) - gap + padding
+    // How far the space reaches at full size: before (0, 0) on the left and top, and after it on the right and bottom.
+    // The spare space past the components on every side. Before (0, 0), it's negative when the first components
+    // are far enough after it.
+    readonly property real spaceLeft: spareWidth - (movingFrame !== null ? Math.min(components.bounds.x, boundsAtDragStart.x) : components.bounds.x)
+    readonly property real spaceTop: spareHeight - (movingFrame !== null ? Math.min(components.bounds.y, boundsAtDragStart.y) : components.bounds.y)
+    readonly property real spaceRight: components.bounds.x + components.bounds.width + spareWidth
+    readonly property real spaceBottom: components.bounds.y + components.bounds.height + spareHeight
 
     // The whole area to draw on, at full size: the space, or the window if that's bigger
     readonly property real areaX: -spaceLeft
     readonly property real areaY: -spaceTop
     readonly property real areaWidth: Math.max(width / zoom, spaceLeft + spaceRight)
     readonly property real areaHeight: Math.max(height / zoom, spaceTop + spaceBottom)
-
-    // Grid cells to pixels. Cell (0, 0) is at the top-left, inside the padding.
-    // Cells can be negative: those are reached by scrolling into the left and top margins.
-    function xFor(col) { return padding + col * colStep }
-    function yFor(row) { return padding + row * rowStep }
-    // Pixels to the cell they're in
-    function colAt(x) { return Math.floor((x - padding) / colStep) }
-    function rowAt(y) { return Math.floor((y - padding) / rowStep) }
-    function widthFor(cols) { return cols * columnWidth + (cols - 1) * gap }
-    function heightFor(rows) { return rows * rowHeight + (rows - 1) * gap }
 
     // The other image, video, PDF or grid component under the pointer while this one is dragged, or null
     function mergeTargetFor(frame) {
@@ -95,35 +77,21 @@ Flickable {
         components.removeComponent(frame.index)
     }
 
-    // While a component is dragged: find the cell nearest its top-left corner,
-    // and when that's a new cell, ask the model to move it there.
+    // While a component is dragged: ask the model to move it to where it's been dragged,
+    // which pushes the components in its way aside.
     // Over a component it can merge with, everything goes back to where it started
     // instead, so that component stays put under the pointer.
     function followDrag(frame) {
         mergeTarget = mergeTargetFor(frame)
-        if (mergeTarget !== null) {
-            if (frame.col !== dragStartCell.x || frame.row !== dragStartCell.y)
-                components.moveComponent(frame.index, dragStartCell.x, dragStartCell.y)
-            return
-        }
-        const col = Math.round((frame.x - padding) / colStep)
-        const row = Math.round((frame.y - padding) / rowStep)
-        if (col !== frame.col || row !== frame.row)
-            components.moveComponent(frame.index, col, row)
+        const to = mergeTarget !== null ? dragStart : Qt.point(Math.round(frame.x), Math.round(frame.y))
+        if (to.x !== frame.area.x || to.y !== frame.area.y)
+            components.moveComponent(frame.index, to.x, to.y)
     }
 
-    // While a corner is dragged: put that corner on the grid line nearest the pointer.
-    // The other two edges stay where they are.
-    function followResize(frame, atLeft, atTop, pointer) {
-        const spot = componentLayer.mapFromItem(null, pointer.x, pointer.y)
-        const colLine = Math.round((spot.x - padding + gap / 2) / colStep)
-        const rowLine = Math.round((spot.y - padding + gap / 2) / rowStep)
-
-        const left = atLeft ? colLine : frame.col
-        const right = atLeft ? frame.col + frame.cols : colLine
-        const top = atTop ? rowLine : frame.row
-        const bottom = atTop ? frame.row + frame.rows : rowLine
-        components.resizeComponent(frame.index, left, top, right, bottom)
+    // While a corner is dragged: move that corner as far as the pointer has moved, at full size.
+    // The opposite corner stays where it is.
+    function followResize(frame, atLeft, atTop, moved) {
+        components.resizeComponent(frame.index, atLeft, atTop, Math.round(moved.x / zoom), Math.round(moved.y / zoom))
     }
 
     // Zooms to this level (1 or 0.5), keeping the spot at this point in the window where it is
@@ -160,15 +128,15 @@ Flickable {
         }
     }
 
-    // Scrolls over the space, at the zoom it's drawn at. The margins reach the cells before cell (0, 0).
+    // Scrolls over the space, at the zoom it's drawn at. The margins reach the space before (0, 0).
     leftMargin: spaceLeft * zoom
     topMargin: spaceTop * zoom
     contentWidth: spaceRight * zoom
     contentHeight: spaceBottom * zoom
-    // Start with the first components at the top-left, the empty columns and rows before them scrolled out of view
+    // Start with the first components near the top-left, the empty space before them scrolled out of view
     Component.onCompleted: {
-        contentX = xFor(components.bounds.x) - padding
-        contentY = yFor(components.bounds.y) - padding
+        contentX = components.bounds.x - 16
+        contentY = components.bounds.y - 16
     }
     flickableDirection: Flickable.HorizontalAndVerticalFlick
     boundsBehavior: Flickable.StopAtBounds
@@ -182,10 +150,8 @@ Flickable {
         const spot = componentLayer.mapFromItem(null, scenePosition.x, scenePosition.y)
         if (componentLayer.childAt(spot.x, spot.y) !== null)
             return
-        const col = colAt(spot.x)
-        const row = rowAt(spot.y)
         const itemFor = (name) => dropArea.itemFor[name.split(".").pop().toLowerCase()]
-        if (!components.addComponent(itemFor(file), file, col, row, 4, 6))
+        if (!components.addComponent(itemFor(file), file, spot.x, spot.y))
             return
 
         const left = frame.file.split("\n")
@@ -196,26 +162,25 @@ Flickable {
             components.replaceItem(frame.index, "GridItem", left.join("\n"))
     }
 
-    // Where a component's grid cells are on screen, in `item`'s coordinates: smaller when zoomed out
-    function gridRectIn(frame, item) {
-        const left = xFor(frame.col), top = yFor(frame.row)
-        const topLeft = componentLayer.mapToItem(item, left, top)
-        const bottomRight = componentLayer.mapToItem(item, left + widthFor(frame.cols), top + heightFor(frame.rows))
+    // Where a component's place on the workspace is on screen, in `item`'s coordinates: smaller when zoomed out
+    function areaIn(frame, item) {
+        const topLeft = componentLayer.mapToItem(item, frame.area.x, frame.area.y)
+        const bottomRight = componentLayer.mapToItem(item, frame.area.x + frame.area.width, frame.area.y + frame.area.height)
         return Qt.rect(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y)
     }
 
-    // Makes a component follow its grid cells again, after it was dragged or shown maximized
-    function followGrid(frame) {
-        frame.x = Qt.binding(() => xFor(frame.col))
-        frame.y = Qt.binding(() => yFor(frame.row))
-        frame.width = Qt.binding(() => widthFor(frame.cols))
-        frame.height = Qt.binding(() => heightFor(frame.rows))
+    // Makes a component follow its place in the model again, after it was dragged or shown maximized
+    function followArea(frame) {
+        frame.x = Qt.binding(() => frame.area.x)
+        frame.y = Qt.binding(() => frame.area.y)
+        frame.width = Qt.binding(() => frame.area.width)
+        frame.height = Qt.binding(() => frame.area.height)
     }
 
     // Puts a component back on the workspace, after MaximizedViewItem showed it maximized
     function takeBack(frame) {
         frame.parent = componentLayer
-        followGrid(frame)
+        followArea(frame)
         frame.maximized = false
     }
 
@@ -232,49 +197,6 @@ Flickable {
             width: workspace.areaWidth
             height: workspace.areaHeight
             color: "#f2f1ee"
-        }
-
-        // The grid lines: one stripe per column and one per row, only while showGrid is on
-        Item {
-            visible: workspace.showGrid
-            x: workspace.areaX
-            y: workspace.areaY
-            width: workspace.areaWidth
-            height: workspace.areaHeight
-
-            Repeater {
-                model: Math.ceil(parent.width / workspace.colStep) + 1
-                Rectangle {
-                    required property int index
-                    x: workspace.xFor(workspace.colAt(workspace.areaX) + index) - workspace.areaX
-                    width: workspace.columnWidth
-                    height: parent.height
-                    color: "#140000ff"
-                }
-            }
-            Repeater {
-                model: Math.ceil(parent.height / workspace.rowStep) + 1
-                Rectangle {
-                    required property int index
-                    y: workspace.yFor(workspace.rowAt(workspace.areaY) + index) - workspace.areaY
-                    width: parent.width
-                    height: workspace.rowHeight
-                    color: "#140000ff"
-                }
-            }
-        }
-
-        // Where the dragged component will land, shown under it while dragging
-        Rectangle {
-            visible: workspace.movingFrame !== null && workspace.mergeTarget === null
-            x: visible ? workspace.xFor(workspace.movingFrame.col) : 0
-            y: visible ? workspace.yFor(workspace.movingFrame.row) : 0
-            width: visible ? workspace.widthFor(workspace.movingFrame.cols) : 0
-            height: visible ? workspace.heightFor(workspace.movingFrame.rows) : 0
-            radius: 12
-            color: "#145b5bd6"
-            border.color: "#5b5bd6"
-            border.width: 2
         }
 
         // Dropping an image, video or PDF file on an empty spot adds a component that shows it
@@ -314,10 +236,7 @@ Flickable {
                     return
                 }
 
-                const col = workspace.colAt(spot.x)
-                const row = workspace.rowAt(spot.y)
-                // New components are 4 columns wide and 6 rows tall
-                if (workspace.components.addComponent(item, file, col, row, 4, 6))
+                if (workspace.components.addComponent(item, file, spot.x, spot.y))
                     drop.accept(Qt.CopyAction)
             }
         }
@@ -362,9 +281,7 @@ Flickable {
 
                 // Adds a component holding this item where the prompt is, and the prompt goes away
                 function addHere(item, text) {
-                    const col = workspace.colAt(prompt.x)
-                    const row = workspace.rowAt(prompt.y)
-                    if (workspace.components.addComponent(item, "", col, row, 4, 6, text))
+                    if (workspace.components.addComponent(item, "", prompt.x, prompt.y, text))
                         prompt.destroy()
                 }
 
@@ -386,10 +303,10 @@ Flickable {
                 model: workspace.components
                 ComponentFrame {
                     id: frame
-                    x: workspace.xFor(col)
-                    y: workspace.yFor(row)
-                    width: workspace.widthFor(cols)
-                    height: workspace.heightFor(rows)
+                    x: area.x
+                    y: area.y
+                    width: area.width
+                    height: area.height
 
                     // Outlined while the dragged component would merge into it
                     border.color: workspace.mergeTarget === frame ? "#5b5bd6" : "#dddad3"
@@ -400,7 +317,7 @@ Flickable {
                             workspace.components.startChange()
                             workspace.boundsAtDragStart = workspace.components.bounds
                             workspace.movingFrame = frame
-                            workspace.dragStartCell = Qt.point(col, row)
+                            workspace.dragStart = Qt.point(area.x, area.y)
                         } else if (workspace.mergeTarget !== null) {
                             // Dropped on a component it can merge with: they become one grid
                             const target = workspace.mergeTarget
@@ -408,16 +325,16 @@ Flickable {
                             workspace.movingFrame = null
                             workspace.merge(frame, target)
                         } else {
-                            // Dropped: follow its grid cell again, which glides it into place
-                            workspace.followGrid(frame)
+                            // Dropped: follow its place in the model again
+                            workspace.followArea(frame)
                             workspace.movingFrame = null
                         }
                     }
                     onCloseClicked: workspace.components.removeComponent(index)
-                onClicked: workspace.componentClicked(frame)
-                onFileDraggedOut: (file, scenePosition) => workspace.takeOutOfGrid(frame, file, scenePosition)
-                        onResizeStarted: workspace.components.startChange()
-                    onResizeMoved: (atLeft, atTop, pointer) => workspace.followResize(frame, atLeft, atTop, pointer)
+                    onClicked: workspace.componentClicked(frame)
+                    onFileDraggedOut: (file, scenePosition) => workspace.takeOutOfGrid(frame, file, scenePosition)
+                    onResizeStarted: workspace.components.startChange()
+                    onResizeMoved: (atLeft, atTop, moved) => workspace.followResize(frame, atLeft, atTop, moved)
                     onXChanged: if (dragging) workspace.followDrag(frame)
                     onYChanged: if (dragging) workspace.followDrag(frame)
                     // The frame glides behind the pointer, so also check each time the pointer moves

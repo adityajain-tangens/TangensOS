@@ -9,7 +9,7 @@ ApplicationWindow {
     visibility: Window.FullScreen
     title: "Tangens"
 
-    // The components on the workspace and where they sit on the grid (WorkspaceModel.cpp)
+    // The components on the workspace and where they sit on it (WorkspaceModel.cpp)
     WorkspaceModel {
         id: componentList
     }
@@ -32,11 +32,5 @@ ApplicationWindow {
         id: maximizedView
         anchors.fill: parent
         workspace: workspace
-    }
-
-    // Cmd+G (Ctrl+G on Windows) shows or hides the grid, to check the layout by eye
-    Shortcut {
-        sequence: "Ctrl+G"
-        onActivated: workspace.showGrid = !workspace.showGrid
     }
 }

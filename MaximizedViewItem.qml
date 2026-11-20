@@ -29,7 +29,7 @@ Item {
         if (frame !== null)
             return
         // Moved in here, at the same spot on screen and the same size as it's drawn now
-        const from = workspace.gridRectIn(component, view)
+        const from = workspace.areaIn(component, view)
         component.maximized = true
         component.parent = view
         component.x = from.x
@@ -45,7 +45,7 @@ Item {
         if (frame === null || shrinking)
             return
         shrinking = true
-        glideTo(workspace.gridRectIn(frame, view))
+        glideTo(workspace.areaIn(frame, view))
     }
 
     // Moves and sizes the component to this rectangle, animated, from wherever it is now
