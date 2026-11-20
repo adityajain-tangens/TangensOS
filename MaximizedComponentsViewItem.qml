@@ -6,7 +6,8 @@ import QtQuick
 // laid out like on the workspace. Part of MaximizedViewItem.
 // The biggest one fits in 300 × 300, and the others, and the distances between them, are shrunk by as much.
 // They're hidden until the pointer comes within 100 pixels of the window's edges. Then they slide in from the
-// side they're on while fading in, and slide back out and fade away when the pointer leaves the edges.
+// side they're on while fading in. They stay while the pointer is over them or between them and the window's
+// edge, and slide back out and fade away once it's farther in than that.
 // Shown, the ones past each side of the maximized one sit against that side of the window, 20 pixels in, keeping
 // their distances from each other. Only when there are too many to fit beside it do they cover it, by up to 100 pixels.
 Item {
@@ -16,14 +17,24 @@ Item {
     // The maximized component, or null when none is
     property ComponentFrame frame: null
 
+    // True while they're shown. Hidden again each time a component is maximized or goes back.
+    property bool open: false
+    onFrameChanged: open = false
     // 1 when they're shown, 0 when hidden, and in between while sliding in or out
-    property real reveal: nearEdge ? 1 : 0
+    property real reveal: open ? 1 : 0
     Behavior on reveal { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
 
-    // True while the pointer is within 100 pixels of the window's edges
-    readonly property bool nearEdge: edgeHover.hovered
-        && (edgeHover.point.position.x < 100 || edgeHover.point.position.x > width - 100
-            || edgeHover.point.position.y < 100 || edgeHover.point.position.y > height - 100)
+    // True while the pointer is within these distances of the window's edges
+    function within(left, right, top, bottom) {
+        const p = edgeHover.point.position
+        return edgeHover.hovered && (p.x < left || p.x > width - right || p.y < top || p.y > height - bottom)
+    }
+    // Shown when the pointer comes within 100 pixels of the window's edges
+    readonly property bool nearEdge: within(100, 100, 100, 100)
+    onNearEdgeChanged: if (nearEdge) open = true
+    // Hidden when it's farther in than that, and than the inner edges of the thumbnails on each side
+    readonly property bool nearThumbnails: within(reach.left, reach.right, reach.top, reach.bottom)
+    onNearThumbnailsChanged: if (!nearThumbnails) open = false
 
     // The components still on the workspace: every one but the maximized one, which has left it
     readonly property var shown: frame === null ? [] : workspace.frames()
@@ -40,19 +51,25 @@ Item {
                        area.width * shrink, area.height * shrink)
     }
 
+    // The thumbnails past each side of the maximized one, where shrunk() puts them
+    readonly property var groups: {
+        if (frame === null)
+            return { left: [], right: [], top: [], bottom: [] }
+        const m = frame.area
+        const past = (test) => shown.filter(f => test(f.area)).map(f => shrunk(f.area))
+        return {
+            left: past(a => a.x + a.width <= m.x),
+            right: past(a => a.x >= m.x + m.width),
+            top: past(a => a.y + a.height <= m.y),
+            bottom: past(a => a.y >= m.y + m.height)
+        }
+    }
+
     // How far the thumbnails past each side of the maximized one move out from where shrunk() puts them:
     // until the outermost is 20 pixels from the window's edge, or farther when there are too many to fit
     // beside the maximized one, so they cover at most 100 pixels of it
     readonly property var shifts: {
-        const none = { left: 0, right: 0, top: 0, bottom: 0 }
-        if (frame === null)
-            return none
-        const m = frame.area
-        const past = (test) => shown.filter(f => test(f.area)).map(f => shrunk(f.area))
-        const left = past(a => a.x + a.width <= m.x)
-        const right = past(a => a.x >= m.x + m.width)
-        const top = past(a => a.y + a.height <= m.y)
-        const bottom = past(a => a.y >= m.y + m.height)
+        const left = groups.left, right = groups.right, top = groups.top, bottom = groups.bottom
         const lefts = (rs) => rs.map(r => r.x), rights = (rs) => rs.map(r => r.x + r.width)
         const tops = (rs) => rs.map(r => r.y), bottoms = (rs) => rs.map(r => r.y + r.height)
         return {
@@ -62,6 +79,14 @@ Item {
             bottom: bottom.length === 0 ? 0 : Math.max(height - 20 - Math.max(...bottoms(bottom)), frame.y + frame.height - 100 - Math.min(...tops(bottom)))
         }
     }
+
+    // How far in from each of the window's edges the thumbnails on that side reach once shown, and at least 100
+    readonly property var reach: ({
+        left: Math.max(100, ...groups.left.map(r => r.x + r.width - shifts.left)),
+        right: Math.max(100, ...groups.right.map(r => width - (r.x + shifts.right))),
+        top: Math.max(100, ...groups.top.map(r => r.y + r.height - shifts.top)),
+        bottom: Math.max(100, ...groups.bottom.map(r => height - (r.y + shifts.bottom)))
+    })
 
     // Where a component's thumbnail goes: moved out to the sides of the window it's past.
     // While hidden, 100 pixels farther out, where it slides in from.
