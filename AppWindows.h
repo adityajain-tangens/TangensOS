@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QRect>
 #include <QVariantList>
 #include <QtQml/qqmlregistration.h>
 
@@ -21,6 +22,15 @@ public:
     // Takes a picture of the biggest window of the app with this pid. Sends captured() with it
     // as a data: URL, or failed() with why it couldn't.
     Q_INVOKABLE void capture(int pid);
+
+    // Moves and resizes the biggest window of the app with this pid to `rect`, in screen points,
+    // and brings it to the front. Needs the Accessibility permission: the first time, macOS asks
+    // for it and this does nothing. Returns whether it worked.
+    Q_INVOKABLE bool placeWindow(int pid, const QRect &rect);
+
+    // Where the biggest window of the app with this pid is, in screen points.
+    // Empty without the Accessibility permission, or if it has no window.
+    Q_INVOKABLE QRect windowRect(int pid) const;
 
 signals:
     void captured(const QString &image);

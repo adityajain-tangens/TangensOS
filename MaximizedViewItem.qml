@@ -162,6 +162,19 @@ Item {
                     if (!view.shrinking)
                         view.reshape(watcher.modelData, aspect)
                 }
+                // Put exactly there, like after a resize by its corner
+                function onAreaWanted(area) {
+                    if (view.shrinking)
+                        return
+                    glide.stop()
+                    const frame = watcher.modelData
+                    if (!view.resizedFrames.includes(frame))
+                        view.resizedFrames.push(frame)
+                    frame.x = area.x
+                    frame.y = area.y
+                    frame.width = area.width
+                    frame.height = area.height
+                }
                 function onMovingChanged() {
                     if (watcher.modelData.moving && !view.shrinking)
                         glide.stop()

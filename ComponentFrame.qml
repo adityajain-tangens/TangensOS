@@ -38,6 +38,17 @@ Rectangle {
     // Sent when the item inside wants another shape, like AppSnapshotItem for its picture: the shape
     // (width divided by height) the whole frame should take for it, keeping about the same size
     signal reshapeWanted(real aspect)
+    // Sent when the item inside wants to be at a certain place on screen, like AppSnapshotItem over its
+    // app's window: where the whole frame should be for it, in its parent's coordinates
+    signal areaWanted(rect area)
+
+    // The frame's area that puts what's inside at `area`, in screen points
+    function areaFor(area) {
+        const topLeft = parent.mapFromGlobal(area.x, area.y)
+        areaWanted(Qt.rect(topLeft.x - content.anchors.leftMargin, topLeft.y - content.anchors.topMargin,
+                           area.width + content.anchors.leftMargin + content.anchors.rightMargin,
+                           area.height + content.anchors.topMargin + content.anchors.bottomMargin))
+    }
 
     // The frame's shape that gives what's inside this shape, keeping what's inside about the same size
     function reshapeFor(aspect) {
@@ -122,6 +133,7 @@ Rectangle {
             if ("text" in item) item.text = frame.text
             if ("draggedOut" in item) item.draggedOut.connect(frame.fileDraggedOut)
             if ("shaped" in item) item.shaped.connect(frame.reshapeFor)
+            if ("screenAreaWanted" in item) item.screenAreaWanted.connect(frame.areaFor)
             if ("interactive" in item) item.interactive = Qt.binding(() => frame.maximized)
         }
     }

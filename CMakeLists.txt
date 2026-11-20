@@ -52,5 +52,5 @@ set_target_properties(appTangens PROPERTIES
 
 target_link_libraries(appTangens
     PRIVATE Qt6::Quick Qt6::Multimedia Qt6::PdfQuick Qt6::WebEngineQuick
-    "-framework AppKit" "-framework ScreenCaptureKit"
+    "-framework AppKit" "-framework ApplicationServices" "-framework ScreenCaptureKit"
 )

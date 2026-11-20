@@ -4,6 +4,7 @@
 #include <QPointer>
 
 #import <AppKit/AppKit.h>
+#import <ApplicationServices/ApplicationServices.h>
 #import <ScreenCaptureKit/ScreenCaptureKit.h>
 
 // A CGImage as a PNG data: URL
@@ -80,4 +81,87 @@ void AppWindows::capture(int pid)
             QMetaObject::invokeMethod(qApp, [guard, url] { if (guard) emit guard->captured(url); }, Qt::QueuedConnection);
         }];
     }];
+}
+
+// The biggest window of the app with this pid, like the one capture() takes a picture of, or null.
+// The caller releases it.
+static AXUIElementRef biggestWindow(int pid)
+{
+    AXUIElementRef app = AXUIElementCreateApplication(pid);
+    CFArrayRef windows = nullptr;
+    AXUIElementCopyAttributeValue(app, kAXWindowsAttribute, (CFTypeRef *)&windows);
+    CFRelease(app);
+    if (!windows)
+        return nullptr;
+
+    AXUIElementRef window = nullptr;
+    double biggest = 0;
+    for (CFIndex i = 0; i < CFArrayGetCount(windows); ++i) {
+        AXUIElementRef w = (AXUIElementRef)CFArrayGetValueAtIndex(windows, i);
+        AXValueRef value = nullptr;
+        CGSize size = CGSizeZero;
+        if (AXUIElementCopyAttributeValue(w, kAXSizeAttribute, (CFTypeRef *)&value) == kAXErrorSuccess) {
+            AXValueGetValue(value, (AXValueType)kAXValueTypeCGSize, &size);
+            CFRelease(value);
+        }
+        if (!window || size.width * size.height > biggest) {
+            window = w;
+            biggest = size.width * size.height;
+        }
+    }
+    if (window)
+        CFRetain(window);
+    CFRelease(windows);
+    return window;
+}
+
+bool AppWindows::placeWindow(int pid, const QRect &rect)
+{
+    // Asks for the Accessibility permission the first time
+    NSDictionary *options = @{ (__bridge NSString *)kAXTrustedCheckOptionPrompt: @YES };
+    if (!AXIsProcessTrustedWithOptions((__bridge CFDictionaryRef)options))
+        return false;
+
+    AXUIElementRef window = biggestWindow(pid);
+    if (!window)
+        return false;
+
+    CGPoint position = CGPointMake(rect.x(), rect.y());
+    CGSize size = CGSizeMake(rect.width(), rect.height());
+    AXValueRef positionValue = AXValueCreate((AXValueType)kAXValueTypeCGPoint, &position);
+    AXValueRef sizeValue = AXValueCreate((AXValueType)kAXValueTypeCGSize, &size);
+    // Moved again after resizing, as some apps shift a window that's resized near a screen's edge
+    AXUIElementSetAttributeValue(window, kAXPositionAttribute, positionValue);
+    AXUIElementSetAttributeValue(window, kAXSizeAttribute, sizeValue);
+    const bool placed = AXUIElementSetAttributeValue(window, kAXPositionAttribute, positionValue) == kAXErrorSuccess;
+    CFRelease(positionValue);
+    CFRelease(sizeValue);
+
+    AXUIElementPerformAction(window, kAXRaiseAction);
+    [[NSRunningApplication runningApplicationWithProcessIdentifier:pid] activateWithOptions:0];
+    CFRelease(window);
+    return placed;
+}
+
+QRect AppWindows::windowRect(int pid) const
+{
+    if (!AXIsProcessTrusted())
+        return {};
+    AXUIElementRef window = biggestWindow(pid);
+    if (!window)
+        return {};
+
+    CGPoint position = CGPointZero;
+    CGSize size = CGSizeZero;
+    AXValueRef value = nullptr;
+    if (AXUIElementCopyAttributeValue(window, kAXPositionAttribute, (CFTypeRef *)&value) == kAXErrorSuccess) {
+        AXValueGetValue(value, (AXValueType)kAXValueTypeCGPoint, &position);
+        CFRelease(value);
+    }
+    if (AXUIElementCopyAttributeValue(window, kAXSizeAttribute, (CFTypeRef *)&value) == kAXErrorSuccess) {
+        AXValueGetValue(value, (AXValueType)kAXValueTypeCGSize, &size);
+        CFRelease(value);
+    }
+    CFRelease(window);
+    return QRect(qRound(position.x), qRound(position.y), qRound(size.width), qRound(size.height));
 }
