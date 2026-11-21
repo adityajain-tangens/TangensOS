@@ -21,4 +21,7 @@ public:
 
     // Ticks or unticks the checkbox on the line at this position, if it has one
     Q_INVOKABLE void flipCheckbox(QQuickTextDocument *document, int position);
+
+    // Adds a message to the end of an AI chat (AIChatItem): a question is bold, on the right, an answer on the left
+    Q_INVOKABLE void addMessage(QQuickTextDocument *document, const QString &text, bool question);
 };

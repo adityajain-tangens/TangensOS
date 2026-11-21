@@ -14,6 +14,8 @@ Column {
     signal addNote(string text)
     // Sent when "Add an image/video" is clicked
     signal addDropZone()
+    // Sent when "Ask AI" is clicked, with what's been typed so far
+    signal askAI(string text)
 
     spacing: 8
 
@@ -31,7 +33,8 @@ Column {
         buttons: [
             { icon: "🔍", title: "Search on the web" },
             { icon: "🖼️", title: "Add an image/video" },
-            { icon: "📝", title: "Add a note" }
+            { icon: "📝", title: "Add a note" },
+            { icon: "✨", title: "Ask AI" }
         ]
         onClicked: (index) => {
             if (index === 0)
@@ -40,6 +43,8 @@ Column {
                 prompt.addDropZone()
             else if (index === 2)
                 prompt.addNote(textField.text)
+            else if (index === 3)
+                prompt.askAI(textField.text)
         }
     }
 }
