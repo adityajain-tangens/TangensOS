@@ -15,6 +15,11 @@ Item {
     property bool dragging: false
     // True when the files can be used, like playing a video or scrolling a PDF, instead of dragged
     property bool interactive: false
+    // How far each video has played and each PDF is scrolled, by the file's URL. ComponentFrame fills it in.
+    // Each file starts from here when it's shown.
+    property var scrolls: ({})
+    // Sent when a file plays or is scrolled: all the positions, with that one changed
+    signal scrollsEdited(var scrolls)
 
     // Sent when a file is dragged and let go outside the grid, with where it was let go in the window.
     // The grid doesn't change by itself: Workspace.qml decides what happens.
@@ -74,7 +79,19 @@ Item {
                     anchors.fill: parent
                     enabled: grid.interactive
                     source: cell.itemName === "" ? "" : cell.itemName + ".qml"
-                    onLoaded: item.file = cell.modelData
+                    onLoaded: {
+                        item.file = cell.modelData
+                        if (!("scroll" in item))
+                            return
+                        const start = grid.scrolls[cell.modelData]
+                        if (start !== undefined)
+                            item.scrollTo(start)
+                        item.scrollChanged.connect(() => {
+                            const scrolls = Object.assign({}, grid.scrolls)
+                            scrolls[cell.modelData] = item.scroll
+                            grid.scrollsEdited(scrolls)
+                        })
+                    }
                 }
 
                 // Follows the pointer while dragged, in front of the other files

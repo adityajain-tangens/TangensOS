@@ -14,6 +14,9 @@ Rectangle {
     required property string item
     required property string file
     required property string text
+    // How far what's inside is scrolled, for items that scroll (like WebViewItem): a point, or undefined.
+    // For a GridItem, a point for each of its files that has one, by the file's URL.
+    required property var scroll
 
     // True while it's shown big in MaximizedViewItem: what's inside can be used,
     // and it can't be dragged or deleted
@@ -41,6 +44,10 @@ Rectangle {
     // Sent when the item inside wants to be at a certain place on screen, like AppSnapshotItem over its
     // app's window: where the whole frame should be for it, in its parent's coordinates
     signal areaWanted(rect area)
+    // Sent when the item inside changes its text (like typing in a TextFieldItem, or a WebViewItem going
+    // to another page), or is scrolled, so the workspace can save it
+    signal textEdited(string text)
+    signal scrolled(var scroll)
 
     // The frame's area that puts what's inside at `area`, in screen points
     function areaFor(area) {
@@ -126,10 +133,25 @@ Rectangle {
         // Items that show a file, like ImageItem, follow this component's file. It's a binding, not a
         // one-time copy, because when a DropZoneItem is swapped for one (WorkspaceModel::replaceItem),
         // the new item loads before the file arrives.
-        // Items that hold text, like TextFieldItem, start with this component's text.
+        // Items that hold text, like TextFieldItem, start with this component's text, and say when it changes.
+        // Items that scroll start scrolled to where they were, and say when they're scrolled.
+        // A GridItem follows the positions of all its files, and says when one changes.
+        // A GridItem's positions come before its files, which are shown as soon as it has them.
         onLoaded: {
+            if ("scrolls" in item) {
+                item.scrolls = Qt.binding(() => frame.scroll ?? {})
+                item.scrollsEdited.connect(frame.scrolled)
+            }
             if ("file" in item) item.file = Qt.binding(() => frame.file)
-            if ("text" in item) item.text = frame.text
+            if ("text" in item) {
+                item.text = frame.text
+                item.textChanged.connect(() => frame.textEdited(item.text))
+            }
+            if ("scroll" in item) {
+                if (frame.scroll !== undefined)
+                    item.scrollTo(frame.scroll)
+                item.scrollChanged.connect(() => frame.scrolled(item.scroll))
+            }
             if ("draggedOut" in item) item.draggedOut.connect(frame.fileDraggedOut)
             if ("shaped" in item) item.shaped.connect(frame.reshapeWanted)
             if ("screenAreaWanted" in item) item.screenAreaWanted.connect(frame.areaFor)

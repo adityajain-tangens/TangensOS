@@ -9,8 +9,17 @@ Item {
     id: web
 
     // What to open first, opened like what's typed in the address field. ComponentFrame fills it in.
+    // Afterwards it follows the page that's open, so it can be saved.
     property string text
-    onTextChanged: go(text)
+    onTextChanged: if (text !== page.url.toString()) go(text)
+
+    // How far the page is scrolled, in the page's own pixels
+    readonly property point scroll: page.scrollPosition
+    // Where to scroll to once the page has loaded, or null
+    property var pendingScroll: null
+    function scrollTo(point) {
+        pendingScroll = point
+    }
 
     // Opens what was typed: a web address, or a Google search for anything else
     function go(typed) {
@@ -60,5 +69,12 @@ Item {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         url: "https://www.google.com"
+        onUrlChanged: web.text = url.toString()
+        onLoadingChanged: (loading) => {
+            if (loading.status !== WebEngineView.LoadSucceededStatus || web.pendingScroll === null)
+                return
+            runJavaScript("window.scrollTo(" + web.pendingScroll.x + ", " + web.pendingScroll.y + ")")
+            web.pendingScroll = null
+        }
     }
 }

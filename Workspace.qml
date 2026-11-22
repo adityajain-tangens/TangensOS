@@ -70,9 +70,21 @@ Flickable {
         return null
     }
 
-    // Puts the files of both components in one grid, in place of the target, and removes the dragged one
+    // How far each file in a component has played or is scrolled, by its URL, like a GridItem keeps them
+    function scrollsOf(frame) {
+        if (frame.item === "GridItem")
+            return frame.scroll ?? {}
+        const scrolls = {}
+        if (frame.scroll !== undefined)
+            scrolls[frame.file] = frame.scroll
+        return scrolls
+    }
+
+    // Puts the files of both components in one grid, in place of the target, and removes the dragged one.
+    // Videos and PDFs keep their positions. Those are set first, so the grid's files start from them.
     function merge(frame, target) {
         const files = target.file.split("\n").concat(frame.file.split("\n"))
+        components.setScroll(target.index, Object.assign({}, scrollsOf(target), scrollsOf(frame)))
         components.replaceItem(target.index, "GridItem", files.join("\n"))
         components.removeComponent(frame.index)
     }
@@ -150,15 +162,18 @@ Flickable {
         const spot = componentLayer.mapFromItem(null, scenePosition.x, scenePosition.y)
         if (componentLayer.childAt(spot.x, spot.y) !== null)
             return
+        // Videos and PDFs keep their positions
+        const scrolls = scrollsOf(frame)
         const itemFor = (name) => dropArea.itemFor[name.split(".").pop().toLowerCase()]
-        if (!components.addComponent(itemFor(file), file, spot.x, spot.y))
+        if (!components.addComponent(itemFor(file), file, spot.x, spot.y, "", scrolls[file]))
             return
 
         const left = frame.file.split("\n")
         left.splice(left.indexOf(file), 1)
-        if (left.length === 1)
+        if (left.length === 1) {
+            components.setScroll(frame.index, scrolls[left[0]])
             components.replaceItem(frame.index, itemFor(left[0]), left[0])
-        else
+        } else
             components.replaceItem(frame.index, "GridItem", left.join("\n"))
     }
 
@@ -348,6 +363,8 @@ Flickable {
                         }
                     }
                     onCloseClicked: workspace.components.removeComponent(index)
+                    onTextEdited: (text) => workspace.components.setText(index, text)
+                    onScrolled: (scroll) => workspace.components.setScroll(index, scroll)
                     onClicked: workspace.componentClicked(frame)
                     onFileDraggedOut: (file, scenePosition) => workspace.takeOutOfGrid(frame, file, scenePosition)
                     // Reshaped while maximized, MaximizedViewItem reshapes it instead

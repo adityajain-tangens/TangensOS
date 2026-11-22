@@ -5,8 +5,17 @@ import QtQuick.Controls
 Item {
     id: textField
 
-    // What's typed in it
+    // What's typed in it, as rich text with its formatting
     property alias text: area.text
+    // How far it's scrolled
+    readonly property point scroll: Qt.point(scroller.contentX, scroller.contentY)
+    // Scrolls to this point once the text has been laid out
+    function scrollTo(point) {
+        Qt.callLater(() => {
+            scroller.contentX = point.x
+            scroller.contentY = point.y
+        })
+    }
 
     // A button on the bar. It never takes focus, so the text keeps its selection.
     component FormatButton: ToolButton {
@@ -89,23 +98,29 @@ Item {
         }
     }
 
-    // Where the text goes
-    TextArea {
-        id: area
+    // Where the text goes. It scrolls when there's more than fits.
+    Flickable {
+        id: scroller
         anchors.fill: parent
         anchors.topMargin: bar.height + 4
-        textFormat: TextEdit.RichText
-        // Keep the selection while a font list is open, so the choice applies to it
-        persistentSelection: true
-        wrapMode: TextEdit.Wrap
         clip: true
-        placeholderText: "Type here…"
+        boundsBehavior: Flickable.StopAtBounds
+        ScrollBar.vertical: ScrollBar {}
 
-        // A click to the left of a line, where its checkbox is, ticks or unticks it
-        onReleased: (event) => {
-            const position = positionAt(event.x, event.y)
-            if (event.x < positionToRectangle(position).x - 4)
-                TextFormatter.flipCheckbox(textDocument, position)
+        TextArea.flickable: TextArea {
+            id: area
+            textFormat: TextEdit.RichText
+            // Keep the selection while a font list is open, so the choice applies to it
+            persistentSelection: true
+            wrapMode: TextEdit.Wrap
+            placeholderText: "Type here…"
+
+            // A click to the left of a line, where its checkbox is, ticks or unticks it
+            onReleased: (event) => {
+                const position = positionAt(event.x, event.y)
+                if (event.x < positionToRectangle(position).x - 4)
+                    TextFormatter.flipCheckbox(textDocument, position)
+            }
         }
     }
 }
