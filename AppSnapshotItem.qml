@@ -7,6 +7,8 @@ import QtQuick
 // While maximized, the app's real window is put right over it, the same size, so the app can be used
 // as if it were the component. It's put there once the component stops moving or changing size.
 // After that, moving or resizing the app's window moves or resizes the component to match.
+// The chosen window is saved (see text). When Tangens starts again, it takes a new picture of that same
+// window, or goes back to choosing an app if the window has been closed since.
 Item {
     id: snapshot
 
@@ -14,10 +16,32 @@ Item {
     property bool chosen: false
     // The chosen app
     property int pid: 0
+    // The id of its window in the picture, once there is one
+    property int windowId: 0
+    // The app's name, to make the saved window easy to tell apart
+    property string appName
+    // True while it's taking a picture of a window it was showing before Tangens started again
+    property bool restoring: false
     // True while the component is maximized. ComponentFrame fills it in.
     property bool interactive: false
     // Shrunk back: a new picture, showing the app as it was left
-    onInteractiveChanged: if (!interactive && pid !== 0) apps.capture(pid)
+    onInteractiveChanged: if (!interactive && pid !== 0) apps.capture(pid, windowId)
+
+    // The chosen window, saved with the workspace, like {"pid":812,"id":4521,"app":"Safari"}. "" before
+    // one is chosen. ComponentFrame fills it in with the saved one when it's loaded.
+    property string text
+    onTextChanged: {
+        if (chosen || text === "")
+            return
+        // Loaded: take a new picture of the saved window
+        const saved = JSON.parse(text)
+        restoring = true
+        chosen = true
+        pid = saved.pid
+        windowId = saved.id
+        appName = saved.app ?? ""
+        apps.capture(pid, windowId)
+    }
 
     // Sent when the picture arrives, with its shape (width divided by height), for the component to take
     signal shaped(real aspect)
@@ -27,8 +51,26 @@ Item {
 
     AppWindows {
         id: apps
-        onCaptured: (image) => picture.source = image
-        onFailed: (error) => message.text = error
+        onCaptured: (image, windowId) => {
+            picture.source = image
+            snapshot.restoring = false
+            if (windowId === snapshot.windowId)
+                return
+            snapshot.windowId = windowId
+            snapshot.text = JSON.stringify({ pid: snapshot.pid, id: windowId, app: snapshot.appName })
+        }
+        onFailed: (error) => {
+            if (!snapshot.restoring) {
+                message.text = error
+                return
+            }
+            // The saved window is gone: choose an app again
+            snapshot.restoring = false
+            snapshot.chosen = false
+            snapshot.pid = 0
+            snapshot.windowId = 0
+            snapshot.text = ""
+        }
     }
 
     // Choosing an app
@@ -92,6 +134,7 @@ Item {
                 onTapped: {
                     snapshot.chosen = true
                     snapshot.pid = app.modelData.pid
+                    snapshot.appName = app.modelData.name
                     apps.capture(app.modelData.pid)
                 }
             }

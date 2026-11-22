@@ -36,7 +36,7 @@ QVariantList AppWindows::openApps() const
     return apps;
 }
 
-void AppWindows::capture(int pid)
+void AppWindows::capture(int pid, int windowId)
 {
     // The answers come on another thread: hand them back to this one, if it's still around
     QPointer<AppWindows> guard(this);
@@ -44,26 +44,32 @@ void AppWindows::capture(int pid)
         QMetaObject::invokeMethod(qApp, [guard, error] { if (guard) emit guard->failed(error); }, Qt::QueuedConnection);
     };
 
-    // Asks for the Screen Recording permission the first time, and fails until it's given
-    [SCShareableContent getShareableContentExcludingDesktopWindows:YES onScreenWindowsOnly:YES
+    // Asks for the Screen Recording permission the first time, and fails until it's given.
+    // A window asked for by its id is looked for off screen too, like on another desktop.
+    [SCShareableContent getShareableContentExcludingDesktopWindows:YES onScreenWindowsOnly:windowId == 0
         completionHandler:^(SCShareableContent *content, NSError *error) {
         if (error) {
             fail("Allow Tangens in System Settings › Privacy & Security › Screen Recording, then try again.");
             return;
         }
 
-        // The app's biggest normal window
+        // The window with that id, or else the app's biggest normal window
         SCWindow *window = nil;
         for (SCWindow *w in content.windows) {
             if (w.owningApplication.processID != pid || w.windowLayer != 0)
                 continue;
-            if (!window || w.frame.size.width * w.frame.size.height > window.frame.size.width * window.frame.size.height)
+            if (windowId != 0) {
+                if (w.windowID == (CGWindowID)windowId)
+                    window = w;
+            } else if (!window || w.frame.size.width * w.frame.size.height > window.frame.size.width * window.frame.size.height) {
                 window = w;
+            }
         }
         if (!window) {
-            fail("This app has no window open.");
+            fail(windowId != 0 ? "This window isn't open anymore." : "This app has no window open.");
             return;
         }
+        const int shown = window.windowID;
 
         SCContentFilter *filter = [[SCContentFilter alloc] initWithDesktopIndependentWindow:window];
         SCStreamConfiguration *config = [[SCStreamConfiguration alloc] init];
@@ -78,7 +84,7 @@ void AppWindows::capture(int pid)
                 return;
             }
             const QString url = pngDataUrl(image);
-            QMetaObject::invokeMethod(qApp, [guard, url] { if (guard) emit guard->captured(url); }, Qt::QueuedConnection);
+            QMetaObject::invokeMethod(qApp, [guard, url, shown] { if (guard) emit guard->captured(url, shown); }, Qt::QueuedConnection);
         }];
     }];
 }

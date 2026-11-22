@@ -19,9 +19,10 @@ public:
     // The icon is a PNG image, as a data: URL an Image can show.
     Q_INVOKABLE QVariantList openApps() const;
 
-    // Takes a picture of the biggest window of the app with this pid. Sends captured() with it
-    // as a data: URL, or failed() with why it couldn't.
-    Q_INVOKABLE void capture(int pid);
+    // Takes a picture of the window with this id, if it's one of the app with this pid, or else of the
+    // app's biggest window. Sends captured() with it as a data: URL, and the id of the window it shows
+    // (which stays the same as long as the window is open), or failed() with why it couldn't.
+    Q_INVOKABLE void capture(int pid, int windowId = 0);
 
     // Moves and resizes the biggest window of the app with this pid to `rect`, in screen points,
     // and brings it to the front. Needs the Accessibility permission: the first time, macOS asks
@@ -33,6 +34,6 @@ public:
     Q_INVOKABLE QRect windowRect(int pid) const;
 
 signals:
-    void captured(const QString &image);
+    void captured(const QString &image, int windowId);
     void failed(const QString &error);
 };

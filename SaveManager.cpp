@@ -102,7 +102,8 @@ void SaveManager::save()
 //     { "type": "GridItem", ..., "files": [ { "path": "/Users/me/a.png" },
 //                                           { "path": "/Users/me/b.mp4", "position": 3000 },
 //                                           { "path": "/Users/me/c.pdf", "scroll": { "x": 0, "y": 600 } } ] },
-//     { "type": "DropZoneItem", ... }   (and "AppSnapshotItem", and "" for an empty one)
+//     { "type": "AppSnapshotItem", ..., "window": { "pid": 812, "id": 4521, "app": "Safari" } },   (once one is chosen)
+//     { "type": "DropZoneItem", ... }   (and "" for an empty one)
 // ] }
 // The type is the name of the item's .qml file. Files are saved as paths on disk, not URLs.
 QJsonObject SaveManager::toJson() const
@@ -126,6 +127,10 @@ QJsonObject SaveManager::toJson() const
         } else if (item == "TextFieldItem") {
             component["text"] = model.m_texts.at(i);
             component["scroll"] = point;
+        } else if (item == "AppSnapshotItem") {
+            // The item keeps its window as JSON text (see AppSnapshotItem.qml)
+            if (!model.m_texts.at(i).isEmpty())
+                component["window"] = QJsonDocument::fromJson(model.m_texts.at(i).toUtf8()).object();
         } else if (item == "GridItem") {
             // Each file's position is kept by its URL (see GridItem.qml)
             const QVariantMap scrolls = scroll.toMap();
@@ -182,7 +187,12 @@ void SaveManager::fromJson(const QJsonObject &json)
         model.m_components.append(QRect(component["x"].toInt(), component["y"].toInt(),
                                         component["width"].toInt(), component["height"].toInt()));
         model.m_items.append(component["type"].toString());
-        model.m_texts.append(component.contains("url") ? component["url"].toString() : component["text"].toString());
+        if (component.contains("url"))
+            model.m_texts.append(component["url"].toString());
+        else if (component.contains("window"))
+            model.m_texts.append(QString::fromUtf8(QJsonDocument(component["window"].toObject()).toJson(QJsonDocument::Compact)));
+        else
+            model.m_texts.append(component["text"].toString());
 
         if (component.contains("files")) {
             // A grid: its files, and each one's position by its URL
