@@ -146,9 +146,15 @@ Flickable {
     contentWidth: spaceRight * zoom
     contentHeight: spaceBottom * zoom
     // Start with the first components near the top-left, the empty space before them scrolled out of view
-    Component.onCompleted: {
+    // The saved components arrive a moment after start (SaveManager reads them in the background), so do it again then
+    function showFirstComponents() {
         contentX = components.bounds.x - 16
         contentY = components.bounds.y - 16
+    }
+    Component.onCompleted: showFirstComponents()
+    Connections {
+        target: SaveManager
+        function onLoadedChanged() { workspace.showFirstComponents() }
     }
     flickableDirection: Flickable.HorizontalAndVerticalFlick
     boundsBehavior: Flickable.StopAtBounds

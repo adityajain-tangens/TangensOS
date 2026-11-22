@@ -13,12 +13,29 @@ Item {
     property string text
     onTextChanged: if (text !== page.url.toString()) go(text)
 
-    // How far the page is scrolled, in the page's own pixels
-    readonly property point scroll: page.scrollPosition
+    // How far the page is scrolled, in the page's own pixels. Until the page has been scrolled back to
+    // where it was, that's where it was, so the saved spot isn't lost while the page loads.
+    readonly property point scroll: pendingScroll !== null ? pendingScroll : page.scrollPosition
     // Where to scroll to once the page has loaded, or null
     property var pendingScroll: null
     function scrollTo(point) {
         pendingScroll = point
+    }
+
+    // Once the page has loaded, scrolls it to pendingScroll several times over a couple of seconds, then stops.
+    // Once isn't enough: many pages keep growing after they load, or scroll themselves back to the top.
+    Timer {
+        id: rescroll
+        property int left: 0
+        interval: 200
+        repeat: true
+        onTriggered: {
+            page.runJavaScript("window.scrollTo(" + web.pendingScroll.x + ", " + web.pendingScroll.y + ")")
+            if (--left > 0)
+                return
+            stop()
+            web.pendingScroll = null
+        }
     }
 
     // Opens what was typed: a web address, or a Google search for anything else
@@ -73,8 +90,8 @@ Item {
         onLoadingChanged: (loading) => {
             if (loading.status !== WebEngineView.LoadSucceededStatus || web.pendingScroll === null)
                 return
-            runJavaScript("window.scrollTo(" + web.pendingScroll.x + ", " + web.pendingScroll.y + ")")
-            web.pendingScroll = null
+            rescroll.left = 10
+            rescroll.start()
         }
     }
 }

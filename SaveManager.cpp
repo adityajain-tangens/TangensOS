@@ -18,8 +18,13 @@ SaveManager::SaveManager(QObject *parent)
     m_saveTimer.setSingleShot(true);
     m_saveTimer.setInterval(500);
     connect(&m_saveTimer, &QTimer::timeout, this, &SaveManager::save);
-    // Anything not written yet is written before the app quits
-    connect(qApp, &QCoreApplication::aboutToQuit, this, [this] { if (m_saveTimer.isActive()) save(); });
+    m_disk.setMaxThreadCount(1);
+    // Anything not written yet is written before the app quits, and the app waits until it is
+    connect(qApp, &QCoreApplication::aboutToQuit, this, [this] {
+        if (m_saveTimer.isActive())
+            save();
+        m_disk.waitForDone();
+    });
 }
 
 SaveManager *SaveManager::instance()
@@ -44,10 +49,19 @@ void SaveManager::watch(WorkspaceModel *model)
 {
     m_model = model;
 
-    // The workspace saved last time. With none, it starts empty.
-    QFile saved(path());
-    if (saved.open(QIODevice::ReadOnly))
-        fromJson(QJsonDocument::fromJson(saved.readAll()).object());
+    // The workspace saved last time, read in the background. With none, it stays empty.
+    // Then back on the main thread, it goes in the model.
+    m_disk.start([this, path = path()] {
+        QFile saved(path);
+        const QJsonObject json = saved.open(QIODevice::ReadOnly) ? QJsonDocument::fromJson(saved.readAll()).object()
+                                                                 : QJsonObject();
+        QMetaObject::invokeMethod(this, [this, json] {
+            if (m_model != nullptr)
+                fromJson(json);
+            m_loaded = true;
+            emit loadedChanged();
+        }, Qt::QueuedConnection);
+    });
 
     connect(model, &QAbstractItemModel::dataChanged, this, &SaveManager::saveLater);
     connect(model, &QAbstractItemModel::rowsInserted, this, &SaveManager::saveLater);
@@ -62,15 +76,19 @@ void SaveManager::saveLater()
 void SaveManager::save()
 {
     m_saveTimer.stop();
-    if (m_model == nullptr)
+    if (m_model == nullptr || !m_loaded)
         return;
-    QDir().mkpath(QFileInfo(path()).path());
-    // Written to a temporary file first, then swapped in, so a crash never leaves half a file
-    QSaveFile file(path());
-    if (!file.open(QIODevice::WriteOnly))
-        return;
-    file.write(QJsonDocument(toJson()).toJson());
-    file.commit();
+    // What to save is taken from the model here, on the main thread. Turning it into text and
+    // writing it happen in the background.
+    m_disk.start([json = toJson(), path = path()] {
+        QDir().mkpath(QFileInfo(path).path());
+        // Written to a temporary file first, then swapped in, so a crash never leaves half a file
+        QSaveFile file(path);
+        if (!file.open(QIODevice::WriteOnly))
+            return;
+        file.write(QJsonDocument(json).toJson());
+        file.commit();
+    });
 }
 
 // The whole workspace as JSON, like:
@@ -149,10 +167,16 @@ QVariant SaveManager::readScroll(const QJsonObject &json)
     return {};
 }
 
-// Puts back a workspace saved by toJson(). Only called before anything shows the model.
+// Puts back a workspace saved by toJson(), in place of whatever the model has
 void SaveManager::fromJson(const QJsonObject &json)
 {
     WorkspaceModel &model = *m_model;
+    model.beginResetModel();
+    model.m_components.clear();
+    model.m_items.clear();
+    model.m_files.clear();
+    model.m_texts.clear();
+    model.m_scrolls.clear();
     for (const QJsonValue &value : json["components"].toArray()) {
         const QJsonObject component = value.toObject();
         model.m_components.append(QRect(component["x"].toInt(), component["y"].toInt(),
@@ -179,4 +203,6 @@ void SaveManager::fromJson(const QJsonObject &json)
         }
     }
     model.m_atStart = model.m_components;
+    model.endResetModel();
+    emit model.boundsChanged();
 }
