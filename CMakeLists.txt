@@ -36,6 +36,8 @@ qt_add_qml_module(appTangens
     SOURCES
         WorkspaceModel.h
         WorkspaceModel.cpp
+        SaveManager.h
+        SaveManager.cpp
         TextFormatter.h
         TextFormatter.cpp
         AppWindows.h

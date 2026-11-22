@@ -1,17 +1,13 @@
 #pragma once
 
 #include <QAbstractListModel>
-#include <QJsonObject>
-#include <QPointF>
 #include <QRect>
-#include <QTimer>
 #include <QtQml/qqmlregistration.h>
 
 // The components on the workspace and where each one sits on it.
 // Positions and sizes are in pixels, at full size. The workspace has no end in any direction, so a
 // position can be negative. Components never overlap, and always keep a small gap between them.
-// The whole workspace is saved as JSON in the app's own data folder a moment after anything changes,
-// and loaded from there when the app starts (see toJson() and fromJson()).
+// SaveManager saves it whenever it changes, and loads it when the app starts.
 class WorkspaceModel : public QAbstractListModel
 {
     Q_OBJECT
@@ -53,20 +49,14 @@ public:
     Q_INVOKABLE void setText(int component, const QString &text);
     Q_INVOKABLE void setScroll(int component, const QVariant &scroll);
 
-    // Writes the workspace to its file now, instead of waiting for the timer
-    Q_INVOKABLE void save();
-
     QRect bounds() const;
 
 signals:
     void boundsChanged();
 
 private:
-    QJsonObject toJson() const;
-    void fromJson(const QJsonObject &json);
-    static QString savePath();
-    static void writeFile(QJsonObject &json, const QString &file, const QVariant &scroll);
-    static QVariant readScroll(const QJsonObject &json);
+    // Reads and writes the lists below when saving and loading
+    friend class SaveManager;
 
     void place(int component, const QRect &moved);
     static bool tooClose(const QRect &a, const QRect &b);
@@ -95,7 +85,4 @@ private:
     // For a VideoItem, how far it has played in milliseconds, as y. For a GridItem, a map from each
     // file's URL to its own. Empty when there's none.
     QList<QVariant> m_scrolls;
-
-    // Saves a moment after the last change, so a drag doesn't write the file at every step
-    QTimer m_saveTimer;
 };
