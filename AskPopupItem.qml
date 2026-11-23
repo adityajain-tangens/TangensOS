@@ -1,15 +1,14 @@
 import QtQuick
 import QtQuick.Controls
 
-// A small card to ask the AI about something that was right-clicked, like selected text.
+// A small card to ask the AI about something that was right-clicked, like selected text or an image.
 // First a line to type the question in, then the question and the AI's answer under it.
 // Clicking outside it, or Esc, closes it.
 Popup {
     id: popup
 
-    // What's being asked about: the selected text, if any, and the text around it
-    property string selected
-    property string around
+    // What's being asked about: the selected text, the text around it and an image, each only if there is one
+    property var context: ({})
     property string question
     property string answer
 
@@ -17,10 +16,9 @@ Popup {
     padding: 12
     focus: true
 
-    // Opens at this point in the window, to ask about this text
-    function ask(selectedText, aroundText, at) {
-        selected = selectedText
-        around = aroundText
+    // Opens at this point in the window, to ask about this
+    function ask(found, at) {
+        context = found
         question = ""
         answer = ""
         input.text = ""
@@ -34,9 +32,11 @@ Popup {
         if (input.text.trim() === "")
             return
         question = input.text.trim()
-        const text = selected !== "" ? "The selected part:\n" + selected + "\n\nThe text around it:\n" + around
-                                     : "The text:\n" + around
-        ai.ask(text + "\n\nQuestion: " + question)
+        const selected = context.selected ?? "", around = context.around ?? ""
+        let text = "Question: " + question
+        if (around !== "")
+            text = (selected !== "" ? "The selected part:\n" + selected + "\n\nThe text around it:\n" : "The text:\n") + around + "\n\n" + text
+        ai.ask(text, context.image ?? "")
     }
 
     AIClient {
@@ -62,7 +62,7 @@ Popup {
             TextField {
                 id: input
                 width: popup.availableWidth - sendButton.width - 8
-                placeholderText: "Ask about this…"
+                placeholderText: popup.context.image ? "Ask about this image…" : "Ask about this…"
                 onAccepted: popup.send()
             }
             Button {

@@ -21,7 +21,7 @@ ApplicationWindow {
         // Gets no clicks, drags, pinches or wheel turns while a component is maximized
         enabled: maximizedView.frames.length === 0
         onComponentClicked: (frame) => maximizedView.show(frame)
-        onAskAbout: (selected, around, scenePosition) => askPopup.ask(selected, around, scenePosition)
+        onAskAbout: (context, scenePosition) => askPopup.ask(context, scenePosition)
     }
 
     // The UI on top of the workspace, which doesn't scroll or zoom with it (OverlayView.qml)

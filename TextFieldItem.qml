@@ -10,8 +10,8 @@ Item {
 
     // What to ask the AI about when it's right-clicked (ComponentFrame): the selected text, if any,
     // and all the text that can be seen around it
-    function askText(done) {
-        done(area.selectedText, area.getText(area.positionAt(0, 0), area.positionAt(area.width, area.height)))
+    function askContext(point, done) {
+        done({ selected: area.selectedText, around: area.getText(area.positionAt(0, 0), area.positionAt(area.width, area.height)) })
     }
 
     // A button on the bar. It never takes focus, so the text keeps its selection.

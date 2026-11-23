@@ -35,9 +35,9 @@ Rectangle {
     signal clicked()
     // Sent when a file is dragged out of the item inside and let go, like from a GridItem
     signal fileDraggedOut(string file, point scenePosition)
-    // Sent when it's right-clicked to ask the AI about what's inside: the selected text, if any, the text around it,
-    // and where it was clicked in the window
-    signal askAbout(string selected, string around, point scenePosition)
+    // Sent when it's right-clicked to ask the AI about what's inside, with where it was clicked in the window.
+    // context has the selected text, the text around it and an image, each only if there is one.
+    signal askAbout(var context, point scenePosition)
 
     radius: 12
     color: "white"
@@ -128,14 +128,18 @@ Rectangle {
     }
 
     // A right click asks the AI about what's inside. Items that have something to ask about give it with
-    // askText(), like TextFieldItem. In front of what's inside, so a note or web page doesn't open its own menu instead.
+    // askContext(), like TextFieldItem, for the spot that was clicked in them.
+    // In front of what's inside, so a note or web page doesn't open its own menu instead.
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.RightButton
         onPressed: (mouse) => {
             const scenePosition = mapToItem(null, mouse.x, mouse.y)
-            if (content.item !== null && "askText" in content.item)
-                content.item.askText((selected, around) => { if (around !== "") frame.askAbout(selected, around, scenePosition) })
+            if (content.item !== null && "askContext" in content.item)
+                content.item.askContext(content.item.mapFromItem(frame, mouse.x, mouse.y), (found) => {
+                    if (found.around || found.image)
+                        frame.askAbout(found, scenePosition)
+                })
         }
     }
 

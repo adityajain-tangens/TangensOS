@@ -5,6 +5,7 @@
 #include <QtQml/qqmlregistration.h>
 
 // Asks the AI (Groq) something and hands back its answer as plain text. It searches the web when it needs to.
+// It can also be asked about an image: a file on this computer, or one on the web by its address.
 // The key comes from the GROQ_API_KEY environment variable.
 class AIClient : public QObject
 {
@@ -15,7 +16,7 @@ class AIClient : public QObject
 
 public:
     bool busy() const { return m_busy; }
-    Q_INVOKABLE void ask(const QString &prompt);
+    Q_INVOKABLE void ask(const QString &prompt, const QUrl &image = QUrl());
 
 signals:
     void busyChanged();

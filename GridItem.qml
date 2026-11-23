@@ -50,7 +50,14 @@ Item {
         pdf: "PDFItem"
     })
 
+    // What to ask the AI about when it's right-clicked (ComponentFrame): the image at that point, if it's an image
+    function askContext(point, done) {
+        const cell = cells.childAt(point.x, point.y)
+        done(cell !== null && cell.itemName === "ImageItem" ? { image: cell.modelData } : {})
+    }
+
     Grid {
+        id: cells
         columns: grid.columns
         spacing: grid.spacing
 

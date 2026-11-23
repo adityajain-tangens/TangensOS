@@ -16,7 +16,7 @@ Flickable {
     // (MaximizedViewItem), which takes it off the workspace until it hands it back with takeBack().
     signal componentClicked(ComponentFrame frame)
     // Sent when a component is right-clicked on something to ask the AI about. Main.qml opens AskPopupItem.
-    signal askAbout(string selected, string around, point scenePosition)
+    signal askAbout(var context, point scenePosition)
     // The component being dragged, or null when nothing is
     property ComponentFrame movingFrame: null
     // The component the dragged one will join in a grid if let go now, or null
@@ -351,7 +351,7 @@ Flickable {
                     }
                     onCloseClicked: workspace.components.removeComponent(index)
                     onClicked: workspace.componentClicked(frame)
-                    onAskAbout: (selected, around, scenePosition) => workspace.askAbout(selected, around, scenePosition)
+                    onAskAbout: (context, scenePosition) => workspace.askAbout(context, scenePosition)
                     onFileDraggedOut: (file, scenePosition) => workspace.takeOutOfGrid(frame, file, scenePosition)
                     // Resized while maximized, MaximizedViewItem resizes it instead
                     onResizeStarted: if (!maximized) workspace.components.startChange()
