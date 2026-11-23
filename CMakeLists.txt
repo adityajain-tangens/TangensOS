@@ -33,6 +33,7 @@ qt_add_qml_module(appTangens
         MaximizedComponentsViewItem.qml
         ComponentSnapshotItem.qml
         AppSnapshotItem.qml
+        TopMostViewItem.qml
     SOURCES
         WorkspaceModel.h
         WorkspaceModel.cpp

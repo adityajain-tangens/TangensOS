@@ -30,10 +30,15 @@ ApplicationWindow {
         enabled: maximizedView.frames.length === 0
     }
 
-    // A clicked component, shown big and usable, in front of everything else (MaximizedViewItem.qml)
+    // A clicked component, shown big and usable, in front of the workspace and OverlayView (MaximizedViewItem.qml)
     MaximizedViewItem {
         id: maximizedView
         anchors.fill: parent
         workspace: workspace
+    }
+
+    // Undo and redo, in front of everything, even the maximized components (TopMostViewItem.qml)
+    TopMostViewItem {
+        anchors.fill: parent
     }
 }
