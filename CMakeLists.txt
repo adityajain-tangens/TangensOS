@@ -21,6 +21,7 @@ qt_add_qml_module(appTangens
         ComponentFrame.qml
         TextFieldItem.qml
         AIChatItem.qml
+        AskPopupItem.qml
         ImageItem.qml
         VideoItem.qml
         PDFItem.qml

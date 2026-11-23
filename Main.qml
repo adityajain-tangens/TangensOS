@@ -21,6 +21,7 @@ ApplicationWindow {
         // Gets no clicks, drags, pinches or wheel turns while a component is maximized
         enabled: maximizedView.frames.length === 0
         onComponentClicked: (frame) => maximizedView.show(frame)
+        onAskAbout: (selected, around, scenePosition) => askPopup.ask(selected, around, scenePosition)
     }
 
     // The UI on top of the workspace, which doesn't scroll or zoom with it (OverlayView.qml)
@@ -35,5 +36,10 @@ ApplicationWindow {
         id: maximizedView
         anchors.fill: parent
         workspace: workspace
+    }
+
+    // A card to ask the AI about something right-clicked, in front of everything (AskPopupItem.qml)
+    AskPopupItem {
+        id: askPopup
     }
 }

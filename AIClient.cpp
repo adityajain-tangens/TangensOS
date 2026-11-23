@@ -7,9 +7,7 @@
 
 static const char *serverUrl = "https://api.groq.com/openai/v1/chat/completions";
 static const char *modelName = "openai/gpt-oss-120b";
-static const char *systemPrompt = "You answer questions asked in a note. You get the whole note: its last question is the new one, "
-                                  "and what comes before is what was asked and answered so far. "
-                                  "Search the web when it needs current facts. Answer briefly, in plain text with no markdown.";
+static const char *systemPrompt = "Answer briefly, in plain text with no markdown. Search the web when it needs current facts.";
 
 void AIClient::ask(const QString &prompt)
 {

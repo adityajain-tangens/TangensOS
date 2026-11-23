@@ -12,6 +12,26 @@ Item {
     property string text
     onTextChanged: go(text)
 
+    // What to ask the AI about when it's right-clicked (ComponentFrame): the text selected on the page, if any,
+    // and the page's title, address and all the text that can be seen on it.
+    // Leaves out menus, footers and sidebars, where promotions and link lists usually are, and hidden text.
+    function askText(done) {
+        page.runJavaScript(`(() => {
+            const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
+            const range = document.createRange()
+            const seen = []
+            for (let node; (node = walker.nextNode());) {
+                if (node.textContent.trim() === "" || node.parentElement.closest("nav, footer, aside, script, style, noscript"))
+                    continue
+                range.selectNodeContents(node)
+                const r = range.getBoundingClientRect()
+                if (r.width > 0 && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth)
+                    seen.push(node.textContent.trim())
+            }
+            return [getSelection().toString(), document.title + " (" + location.href + ")\\n\\n" + seen.join(" ")]
+        })()`, (found) => done(found[0], found[1]))
+    }
+
     // Opens what was typed: a web address, or a Google search for anything else
     function go(typed) {
         const text = typed.trim()
