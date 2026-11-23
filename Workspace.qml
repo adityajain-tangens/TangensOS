@@ -194,6 +194,15 @@ Flickable {
         return componentLayer.children.filter(child => (child as ComponentFrame) !== null)
     }
 
+    // Adds a component holding this item next to `frame`, on its right, and returns the new one's frame.
+    // If another component is already right there, it goes past the right edge of all of them instead.
+    // It's the newest, so its frame is the last one.
+    function addBeside(frame, item) {
+        if (!components.addComponent(item, "", frame.area.x + frame.area.width + 12, frame.area.y))
+            components.addComponent(item, "", components.bounds.x + components.bounds.width + 12, frame.area.y)
+        return frameRepeater.itemAt(frameRepeater.count - 1) as ComponentFrame
+    }
+
     // Puts a component back on the workspace, after MaximizedViewItem showed it maximized
     function takeBack(frame) {
         frame.parent = componentLayer
@@ -319,6 +328,7 @@ Flickable {
             id: componentLayer
 
             Repeater {
+                id: frameRepeater
                 model: workspace.components
                 ComponentFrame {
                     id: frame

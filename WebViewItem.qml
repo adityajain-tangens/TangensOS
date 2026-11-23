@@ -38,12 +38,12 @@ Item {
         })()`, (found) => done(found ?? {}))
     }
 
-    // Opens what was typed: a web address, or a Google search for anything else
+    // Opens what was typed: a web address (like apple.com or chrome://gpu), or a Google search for anything else
     function go(typed) {
         const text = typed.trim()
         if (text === "")
             return
-        if (text.includes(".") && !text.includes(" "))
+        if (text.includes("://") || text.includes(".") && !text.includes(" "))
             page.url = text.includes("://") ? text : "https://" + text
         else
             page.url = "https://www.google.com/search?q=" + encodeURIComponent(text)

@@ -38,6 +38,14 @@ ApplicationWindow {
         workspace: workspace
     }
 
+    // Cmd+T while a web page is maximized, like a new tab: a new web page next to it on the workspace, shown maximized too.
+    // With several maximized, next to the first.
+    Shortcut {
+        sequence: StandardKey.AddTab
+        enabled: maximizedView.frames.some(f => f.item === "WebViewItem")
+        onActivated: maximizedView.show(workspace.addBeside(maximizedView.frames.find(f => f.item === "WebViewItem"), "WebViewItem"))
+    }
+
     // A card to ask the AI about something right-clicked, in front of everything (AskPopupItem.qml)
     AskPopupItem {
         id: askPopup

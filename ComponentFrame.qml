@@ -133,6 +133,11 @@ Rectangle {
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.RightButton
+        // TEMPORARY: logs every scroll event, then passes it on untouched
+        onWheel: (wheel) => {
+            console.log("wheel phase:", wheel.phase, "pixelDelta:", wheel.pixelDelta.y, "angleDelta:", wheel.angleDelta.y)
+            wheel.accepted = false
+        }
         onPressed: (mouse) => {
             const scenePosition = mapToItem(null, mouse.x, mouse.y)
             if (content.item !== null && "askContext" in content.item)
