@@ -12,6 +12,9 @@ qt_add_executable(appTangens
     main.cpp
 )
 
+# The one web profile all web pages share (WebProfile.qml)
+set_source_files_properties(WebProfile.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+
 # The QML files, bundled into the app under the name "Tangens"
 qt_add_qml_module(appTangens
     URI Tangens
@@ -34,6 +37,7 @@ qt_add_qml_module(appTangens
         MaximizedViewItem.qml
         MaximizedComponentsViewItem.qml
         ComponentSnapshotItem.qml
+        WebProfile.qml
     SOURCES
         WorkspaceModel.h
         WorkspaceModel.cpp

@@ -85,6 +85,8 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
+        // Remembers cookies and logins between launches (WebProfile.qml)
+        profile: WebProfile
         url: "https://www.google.com"
     }
 }
