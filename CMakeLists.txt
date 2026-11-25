@@ -4,7 +4,7 @@ project(Tangens VERSION 0.1 LANGUAGES CXX OBJCXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Quick Multimedia PdfQuick WebEngineQuick)
+find_package(Qt6 REQUIRED COMPONENTS Quick Multimedia PdfQuick WebEngineQuick Network)
 
 qt_standard_project_setup(REQUIRES 6.10)
 
@@ -20,6 +20,8 @@ qt_add_qml_module(appTangens
         Workspace.qml
         ComponentFrame.qml
         TextFieldItem.qml
+        AIChatItem.qml
+        AskPopupItem.qml
         ImageItem.qml
         VideoItem.qml
         PDFItem.qml
@@ -43,6 +45,8 @@ qt_add_qml_module(appTangens
         TextFormatter.cpp
         AppWindows.h
         AppWindows.mm
+        AIClient.h
+        AIClient.cpp
 )
 
 # AppWindows.mm lists the open apps and takes pictures of their windows

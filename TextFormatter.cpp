@@ -91,3 +91,23 @@ void TextFormatter::flipCheckbox(QQuickTextDocument *document, int position)
     line.setMarker(line.marker() == Marker::Checked ? Marker::Unchecked : Marker::Checked);
     cursor.setBlockFormat(line);
 }
+
+void TextFormatter::addMessage(QQuickTextDocument *document, const QString &text, bool question)
+{
+    QTextCursor cursor(document->textDocument());
+    cursor.movePosition(QTextCursor::End);
+    QTextBlockFormat line;
+    line.setAlignment(question ? Qt::AlignRight : Qt::AlignLeft);
+    line.setBottomMargin(8);
+    QTextCharFormat words;
+    words.setFontWeight(question ? QFont::Bold : QFont::Normal);
+
+    cursor.beginEditBlock();
+    // The first message goes on the empty first line, the others on a new one
+    if (cursor.position() == 0)
+        cursor.setBlockFormat(line);
+    else
+        cursor.insertBlock(line);
+    cursor.insertText(text, words);
+    cursor.endEditBlock();
+}

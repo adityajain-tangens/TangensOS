@@ -15,6 +15,8 @@ Flickable {
     // Sent when a component is clicked, without dragging it. Main.qml shows it maximized
     // (MaximizedViewItem), which takes it off the workspace until it hands it back with takeBack().
     signal componentClicked(ComponentFrame frame)
+    // Sent when a component is right-clicked on something to ask the AI about. Main.qml opens AskPopupItem.
+    signal askAbout(var context, point scenePosition)
     // The component being dragged, or null when nothing is
     property ComponentFrame movingFrame: null
     // The component the dragged one will join in a grid if let go now, or null
@@ -213,6 +215,15 @@ Flickable {
         return componentLayer.children.filter(child => (child as ComponentFrame) !== null)
     }
 
+    // Adds a component holding this item next to `frame`, on its right, and returns the new one's frame.
+    // If another component is already right there, it goes past the right edge of all of them instead.
+    // It's the newest, so its frame is the last one.
+    function addBeside(frame, item) {
+        if (!components.addComponent(item, "", frame.area.x + frame.area.width + 12, frame.area.y))
+            components.addComponent(item, "", components.bounds.x + components.bounds.width + 12, frame.area.y)
+        return frameRepeater.itemAt(frameRepeater.count - 1) as ComponentFrame
+    }
+
     // Puts a component back on the workspace, after MaximizedViewItem showed it maximized
     function takeBack(frame) {
         frame.parent = componentLayer
@@ -326,6 +337,8 @@ Flickable {
                 onAddNote: (text) => addHere("TextFieldItem", text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>"))
                 // A web page, searching for what was typed, if anything
                 onSearchWeb: (text) => addHere("WebViewItem", text)
+                // A chat with the AI, asking what was typed, if anything
+                onAskAI: (text) => addHere("AIChatItem", text)
                 // A spot to drop an image, video or PDF onto
                 onAddDropZone: addHere("DropZoneItem", "")
                 // A picture of an open app's window, once one is chosen
@@ -338,6 +351,7 @@ Flickable {
             id: componentLayer
 
             Repeater {
+                id: frameRepeater
                 model: workspace.components
                 ComponentFrame {
                     id: frame
@@ -372,6 +386,7 @@ Flickable {
                     onTextEdited: (text) => workspace.components.setText(index, text)
                     onScrolled: (scroll) => workspace.components.setScroll(index, scroll)
                     onClicked: workspace.componentClicked(frame)
+                    onAskAbout: (context, scenePosition) => workspace.askAbout(context, scenePosition)
                     onFileDraggedOut: (file, scenePosition) => workspace.takeOutOfGrid(frame, file, scenePosition)
                     // Reshaped while maximized, MaximizedViewItem reshapes it instead
                     onReshapeWanted: (aspect) => { if (!maximized) workspace.reshape(frame, aspect) }

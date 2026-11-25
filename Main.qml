@@ -21,6 +21,7 @@ ApplicationWindow {
         // Gets no clicks, drags, pinches or wheel turns while a component is maximized
         enabled: maximizedView.frames.length === 0
         onComponentClicked: (frame) => maximizedView.show(frame)
+        onAskAbout: (context, scenePosition) => askPopup.ask(context, scenePosition)
     }
 
     // The UI on top of the workspace, which doesn't scroll or zoom with it (OverlayView.qml)
@@ -40,5 +41,18 @@ ApplicationWindow {
     // Undo and redo, in front of everything, even the maximized components (TopMostViewItem.qml)
     TopMostViewItem {
         anchors.fill: parent
+    }
+
+    // Cmd+T while a web page is maximized, like a new tab: a new web page next to it on the workspace, shown maximized too.
+    // With several maximized, next to the first.
+    Shortcut {
+        sequence: StandardKey.AddTab
+        enabled: maximizedView.frames.some(f => f.item === "WebViewItem")
+        onActivated: maximizedView.show(workspace.addBeside(maximizedView.frames.find(f => f.item === "WebViewItem"), "WebViewItem"))
+    }
+
+    // A card to ask the AI about something right-clicked, in front of everything (AskPopupItem.qml)
+    AskPopupItem {
+        id: askPopup
     }
 }

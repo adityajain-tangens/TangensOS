@@ -64,6 +64,10 @@ Rectangle {
     // frame's: the top bar takes a bigger share of a small frame than of a big one.
     readonly property real contentAspect: (width - chrome.width) / (height - chrome.height)
 
+    // Sent when it's right-clicked to ask the AI about what's inside, with where it was clicked in the window.
+    // context has the selected text, the text around it and an image, each only if there is one.
+    signal askAbout(var context, point scenePosition)
+
     radius: 12
     color: "white"
     border.color: "#dddad3"
@@ -167,6 +171,27 @@ Rectangle {
         anchors.topMargin: 36
         radius: 8
         color: Qt.hsla((frame.index * 0.17) % 1, 0.5, 0.85, 1)
+    }
+
+    // A right click asks the AI about what's inside. Items that have something to ask about give it with
+    // askContext(), like TextFieldItem, for the spot that was clicked in them.
+    // In front of what's inside, so a note or web page doesn't open its own menu instead.
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.RightButton
+        // TEMPORARY: logs every scroll event, then passes it on untouched
+        onWheel: (wheel) => {
+            console.log("wheel phase:", wheel.phase, "pixelDelta:", wheel.pixelDelta.y, "angleDelta:", wheel.angleDelta.y)
+            wheel.accepted = false
+        }
+        onPressed: (mouse) => {
+            const scenePosition = mapToItem(null, mouse.x, mouse.y)
+            if (content.item !== null && "askContext" in content.item)
+                content.item.askContext(content.item.mapFromItem(frame, mouse.x, mouse.y), (found) => {
+                    if (found.around || found.image)
+                        frame.askAbout(found, scenePosition)
+                })
+        }
     }
 
     // Its place on the workspace, to check the layout

@@ -11,4 +11,9 @@ Image {
     // so SVGs stay sharp and big photos don't use extra memory. Photos are never enlarged past their own size.
     sourceSize: Qt.size(width * Screen.devicePixelRatio, height * Screen.devicePixelRatio)
     asynchronous: true
+
+    // What to ask the AI about when it's right-clicked (ComponentFrame): this image
+    function askContext(point, done) {
+        done({ image: file.toString() })
+    }
 }

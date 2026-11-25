@@ -38,12 +38,38 @@ Item {
         }
     }
 
-    // Opens what was typed: a web address, or a Google search for anything else
+    // What to ask the AI about when it's right-clicked (ComponentFrame): the text selected on the page, if any,
+    // the page's title, address and all the text that can be seen on it, and the image at that point, if there is one.
+    // Leaves out menus, footers and sidebars, where promotions and link lists usually are, and hidden text.
+    function askContext(point, done) {
+        const at = page.mapFromItem(web, point)
+        page.runJavaScript(`(() => {
+            const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
+            const range = document.createRange()
+            const seen = []
+            for (let node; (node = walker.nextNode());) {
+                if (node.textContent.trim() === "" || node.parentElement.closest("nav, footer, aside, script, style, noscript"))
+                    continue
+                range.selectNodeContents(node)
+                const r = range.getBoundingClientRect()
+                if (r.width > 0 && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth)
+                    seen.push(node.textContent.trim())
+            }
+            const image = document.elementFromPoint(${at.x}, ${at.y})?.closest("img")
+            return {
+                selected: getSelection().toString(),
+                around: document.title + " (" + location.href + ")\\n\\n" + seen.join(" "),
+                image: image ? image.currentSrc || image.src : ""
+            }
+        })()`, (found) => done(found ?? {}))
+    }
+
+    // Opens what was typed: a web address (like apple.com or chrome://gpu), or a Google search for anything else
     function go(typed) {
         const text = typed.trim()
         if (text === "")
             return
-        if (text.includes(".") && !text.includes(" "))
+        if (text.includes("://") || text.includes(".") && !text.includes(" "))
             page.url = text.includes("://") ? text : "https://" + text
         else
             page.url = "https://www.google.com/search?q=" + encodeURIComponent(text)
