@@ -89,4 +89,24 @@ Item {
         profile: WebProfile
         url: "https://www.google.com"
     }
+
+    // On top of the page, sees each trackpad scroll before the page does. All are passed on, except the
+    // one macOS sends when its momentum ends (like when fingers rest on the trackpad to stop it). Qt WebEngine
+    // hands it to the page as if the fingers were lifted while moving, so the page would keep sliding by
+    // itself instead of stopping.
+    MouseArea {
+        anchors.fill: page
+        // Only scrolling: clicks, hovering and right clicks go to the page
+        acceptedButtons: Qt.NoButton
+        // True while macOS's momentum is moving the page
+        property bool inMomentum: false
+        onWheel: (wheel) => {
+            if (wheel.phase === Qt.ScrollMomentum)
+                inMomentum = true
+            else if (wheel.phase === Qt.ScrollBegin || wheel.phase === Qt.ScrollUpdate)
+                inMomentum = false
+            // Kept here, not passed on, when it ends the momentum
+            wheel.accepted = wheel.phase === Qt.ScrollEnd && inMomentum
+        }
+    }
 }
