@@ -88,6 +88,24 @@ Item {
         // Remembers cookies and logins between launches (WebProfile.qml)
         profile: WebProfile
         url: "https://www.google.com"
+
+        // TEMPORARY: logs, with the time, each scroll event the page gets and each time it actually moves.
+        // "blocking" means the page could have stopped the scroll itself, so Chromium had to wait for it.
+        onLoadingChanged: if (!loading) runJavaScript(`(() => {
+            if (window.__scrollLog) return
+            window.__scrollLog = true
+            const now = () => Date.now() % 100000
+            addEventListener("wheel", (e) => console.log("[scroll] page wheel", now(),
+                "sent", Math.round((performance.timeOrigin + e.timeStamp) % 100000), "dy", Math.round(e.deltaY),
+                e.cancelable ? "blocking" : ""), { passive: true, capture: true })
+            document.addEventListener("scroll", (e) => {
+                const el = e.target === document ? document.scrollingElement : e.target
+                console.log("[scroll] page moved", now(), "y", Math.round(el.scrollTop),
+                    e.target === document ? "" : "(inner: " + el.tagName + "." + el.className + ")")
+            }, { passive: true, capture: true })
+        })()`)
+        // TEMPORARY: shows those logs in Qt Creator's output
+        onJavaScriptConsoleMessage: (level, message) => { if (message.startsWith("[scroll]")) console.log(message) }
     }
 
     // On top of the page, sees each trackpad scroll before the page does. All are passed on, except the
@@ -101,12 +119,19 @@ Item {
         // True while macOS's momentum is moving the page
         property bool inMomentum: false
         onWheel: (wheel) => {
+            // TEMPORARY: logs every scroll event before the page gets it
+            console.log("[scroll] qt  ", Date.now() % 100000, "phase", wheel.phase, "dy", wheel.pixelDelta.y)
             if (wheel.phase === Qt.ScrollMomentum)
                 inMomentum = true
             else if (wheel.phase === Qt.ScrollBegin || wheel.phase === Qt.ScrollUpdate)
                 inMomentum = false
             // Kept here, not passed on, when it ends the momentum
             wheel.accepted = wheel.phase === Qt.ScrollEnd && inMomentum
+            // TEMPORARY TEST: also keep back the "fingers lifted" end, so the page never gets any end
+            wheel.accepted = wheel.phase === Qt.ScrollEnd
+            // TEMPORARY
+            if (wheel.accepted)
+                console.log("[scroll] swallowed")
         }
     }
 }
