@@ -9,8 +9,34 @@ Item {
     id: web
 
     // What to open first, opened like what's typed in the address field. ComponentFrame fills it in.
+    // Afterwards it follows the page that's open, so it can be saved.
     property string text
-    onTextChanged: go(text)
+    onTextChanged: if (text !== page.url.toString()) go(text)
+
+    // How far the page is scrolled, in the page's own pixels. Until the page has been scrolled back to
+    // where it was, that's where it was, so the saved spot isn't lost while the page loads.
+    readonly property point scroll: pendingScroll !== null ? pendingScroll : page.scrollPosition
+    // Where to scroll to once the page has loaded, or null
+    property var pendingScroll: null
+    function scrollTo(point) {
+        pendingScroll = point
+    }
+
+    // Once the page has loaded, scrolls it to pendingScroll several times over a couple of seconds, then stops.
+    // Once isn't enough: many pages keep growing after they load, or scroll themselves back to the top.
+    Timer {
+        id: rescroll
+        property int left: 0
+        interval: 200
+        repeat: true
+        onTriggered: {
+            page.runJavaScript("window.scrollTo(" + web.pendingScroll.x + ", " + web.pendingScroll.y + ")")
+            if (--left > 0)
+                return
+            stop()
+            web.pendingScroll = null
+        }
+    }
 
     // What to ask the AI about when it's right-clicked (ComponentFrame): the text selected on the page, if any,
     // the page's title, address and all the text that can be seen on it, and the image at that point, if there is one.
@@ -88,50 +114,12 @@ Item {
         // Remembers cookies and logins between launches (WebProfile.qml)
         profile: WebProfile
         url: "https://www.google.com"
-
-        // TEMPORARY: logs, with the time, each scroll event the page gets and each time it actually moves.
-        // "blocking" means the page could have stopped the scroll itself, so Chromium had to wait for it.
-        onLoadingChanged: if (!loading) runJavaScript(`(() => {
-            if (window.__scrollLog) return
-            window.__scrollLog = true
-            const now = () => Date.now() % 100000
-            addEventListener("wheel", (e) => console.log("[scroll] page wheel", now(),
-                "sent", Math.round((performance.timeOrigin + e.timeStamp) % 100000), "dy", Math.round(e.deltaY),
-                e.cancelable ? "blocking" : ""), { passive: true, capture: true })
-            document.addEventListener("scroll", (e) => {
-                const el = e.target === document ? document.scrollingElement : e.target
-                console.log("[scroll] page moved", now(), "y", Math.round(el.scrollTop),
-                    e.target === document ? "" : "(inner: " + el.tagName + "." + el.className + ")")
-            }, { passive: true, capture: true })
-        })()`)
-        // TEMPORARY: shows those logs in Qt Creator's output
-        onJavaScriptConsoleMessage: (level, message) => { if (message.startsWith("[scroll]")) console.log(message) }
-    }
-
-    // On top of the page, sees each trackpad scroll before the page does. All are passed on, except the
-    // one macOS sends when its momentum ends (like when fingers rest on the trackpad to stop it). Qt WebEngine
-    // hands it to the page as if the fingers were lifted while moving, so the page would keep sliding by
-    // itself instead of stopping.
-    MouseArea {
-        anchors.fill: page
-        // Only scrolling: clicks, hovering and right clicks go to the page
-        acceptedButtons: Qt.NoButton
-        // True while macOS's momentum is moving the page
-        property bool inMomentum: false
-        onWheel: (wheel) => {
-            // TEMPORARY: logs every scroll event before the page gets it
-            console.log("[scroll] qt  ", Date.now() % 100000, "phase", wheel.phase, "dy", wheel.pixelDelta.y)
-            if (wheel.phase === Qt.ScrollMomentum)
-                inMomentum = true
-            else if (wheel.phase === Qt.ScrollBegin || wheel.phase === Qt.ScrollUpdate)
-                inMomentum = false
-            // Kept here, not passed on, when it ends the momentum
-            wheel.accepted = wheel.phase === Qt.ScrollEnd && inMomentum
-            // TEMPORARY TEST: also keep back the "fingers lifted" end, so the page never gets any end
-            wheel.accepted = wheel.phase === Qt.ScrollEnd
-            // TEMPORARY
-            if (wheel.accepted)
-                console.log("[scroll] swallowed")
+        onUrlChanged: web.text = url.toString()
+        onLoadingChanged: (loading) => {
+            if (loading.status !== WebEngineView.LoadSucceededStatus || web.pendingScroll === null)
+                return
+            rescroll.left = 10
+            rescroll.start()
         }
     }
 }

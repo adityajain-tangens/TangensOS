@@ -72,9 +72,21 @@ Flickable {
         return null
     }
 
-    // Puts the files of both components in one grid, in place of the target, and removes the dragged one
+    // How far each file in a component has played or is scrolled, by its URL, like a GridItem keeps them
+    function scrollsOf(frame) {
+        if (frame.item === "GridItem")
+            return frame.scroll ?? {}
+        const scrolls = {}
+        if (frame.scroll !== undefined)
+            scrolls[frame.file] = frame.scroll
+        return scrolls
+    }
+
+    // Puts the files of both components in one grid, in place of the target, and removes the dragged one.
+    // Videos and PDFs keep their positions. Those are set first, so the grid's files start from them.
     function merge(frame, target) {
         const files = target.file.split("\n").concat(frame.file.split("\n"))
+        components.setScroll(target.index, Object.assign({}, scrollsOf(target), scrollsOf(frame)))
         components.replaceItem(target.index, "GridItem", files.join("\n"))
         components.removeComponent(frame.index)
     }
@@ -136,9 +148,15 @@ Flickable {
     contentWidth: spaceRight * zoom
     contentHeight: spaceBottom * zoom
     // Start with the first components near the top-left, the empty space before them scrolled out of view
-    Component.onCompleted: {
+    // The saved components arrive a moment after start (SaveManager reads them in the background), so do it again then
+    function showFirstComponents() {
         contentX = components.bounds.x - 16
         contentY = components.bounds.y - 16
+    }
+    Component.onCompleted: showFirstComponents()
+    Connections {
+        target: SaveManager
+        function onLoadedChanged() { workspace.showFirstComponents() }
     }
     flickableDirection: Flickable.HorizontalAndVerticalFlick
     boundsBehavior: Flickable.StopAtBounds
@@ -152,24 +170,27 @@ Flickable {
         const spot = componentLayer.mapFromItem(null, scenePosition.x, scenePosition.y)
         if (componentLayer.childAt(spot.x, spot.y) !== null)
             return
+        // Videos and PDFs keep their positions
+        const scrolls = scrollsOf(frame)
         const itemFor = (name) => dropArea.itemFor[name.split(".").pop().toLowerCase()]
-        if (!components.addComponent(itemFor(file), file, spot.x, spot.y))
+        if (!components.addComponent(itemFor(file), file, spot.x, spot.y, "", scrolls[file]))
             return
 
         const left = frame.file.split("\n")
         left.splice(left.indexOf(file), 1)
-        if (left.length === 1)
+        if (left.length === 1) {
+            components.setScroll(frame.index, scrolls[left[0]])
             components.replaceItem(frame.index, itemFor(left[0]), left[0])
-        else
+        } else
             components.replaceItem(frame.index, "GridItem", left.join("\n"))
     }
 
-    // Gives a component this shape (width divided by height), keeping about the same size: the same area,
-    // and the same top-left corner. Components in the way are pushed aside.
+    // Gives what's inside a component this shape (width divided by height), keeping about the same size:
+    // the same area inside, and the same top-left corner. Components in the way are pushed aside.
     function reshape(frame, aspect) {
-        const size = frame.area.width * frame.area.height
-        const width = Math.round(Math.sqrt(size * aspect))
-        const height = Math.round(Math.sqrt(size / aspect))
+        const size = (frame.area.width - frame.chrome.width) * (frame.area.height - frame.chrome.height)
+        const width = Math.round(Math.sqrt(size * aspect) + frame.chrome.width)
+        const height = Math.round(Math.sqrt(size / aspect) + frame.chrome.height)
         components.startChange()
         components.resizeComponent(frame.index, false, false, width - frame.area.width, height - frame.area.height)
     }
@@ -320,6 +341,8 @@ Flickable {
                 onAskAI: (text) => addHere("AIChatItem", text)
                 // A spot to drop an image, video or PDF onto
                 onAddDropZone: addHere("DropZoneItem", "")
+                // A picture of an open app's window, once one is chosen
+                onAddApp: addHere("AppSnapshotItem", "")
             }
         }
 
@@ -360,9 +383,13 @@ Flickable {
                         }
                     }
                     onCloseClicked: workspace.components.removeComponent(index)
+                    onTextEdited: (text) => workspace.components.setText(index, text)
+                    onScrolled: (scroll) => workspace.components.setScroll(index, scroll)
                     onClicked: workspace.componentClicked(frame)
                     onAskAbout: (context, scenePosition) => workspace.askAbout(context, scenePosition)
                     onFileDraggedOut: (file, scenePosition) => workspace.takeOutOfGrid(frame, file, scenePosition)
+                    // Reshaped while maximized, MaximizedViewItem reshapes it instead
+                    onReshapeWanted: (aspect) => { if (!maximized) workspace.reshape(frame, aspect) }
                     // Resized while maximized, MaximizedViewItem resizes it instead
                     onResizeStarted: if (!maximized) workspace.components.startChange()
                     onResizeMoved: (atLeft, atTop, moved) => { if (!maximized) workspace.followResize(frame, atLeft, atTop, moved) }

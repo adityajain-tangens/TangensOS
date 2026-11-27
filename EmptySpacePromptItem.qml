@@ -14,6 +14,8 @@ Column {
     signal addNote(string text)
     // Sent when "Add an image/video" is clicked
     signal addDropZone()
+    // Sent when "Add an app" is clicked
+    signal addApp()
     // Sent when "Ask AI" is clicked, with what's been typed so far
     signal askAI(string text)
 
@@ -34,6 +36,7 @@ Column {
             { icon: "🔍", title: "Search on the web" },
             { icon: "🖼️", title: "Add an image/video" },
             { icon: "📝", title: "Add a note" },
+            { icon: "🧩", title: "Add an app" },
             { icon: "✨", title: "Ask AI" }
         ]
         onClicked: (index) => {
@@ -44,6 +47,8 @@ Column {
             else if (index === 2)
                 prompt.addNote(textField.text)
             else if (index === 3)
+                prompt.addApp()
+            else if (index === 4)
                 prompt.askAI(textField.text)
         }
     }

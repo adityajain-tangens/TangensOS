@@ -11,10 +11,25 @@ Video {
 
     readonly property bool isPlaying: playbackState === MediaPlayer.PlayingState
 
+    // How far it has played, in milliseconds, as y, like the scroll of items that scroll
+    readonly property point scroll: Qt.point(0, position)
+    // Where to start from once the file has loaded, in milliseconds
+    property int startAt: 0
+    function scrollTo(point) {
+        startAt = point.y
+    }
+
     source: file
     fillMode: VideoOutput.PreserveAspectFit
     // Show the first frame once the file has loaded, instead of a blank space
     onHasVideoChanged: if (hasVideo && !isPlaying) pause()
+    // Then go to where it was left. Only once it's paused: before, the player ignores it.
+    onPlaybackStateChanged: {
+        if (playbackState !== MediaPlayer.PausedState || startAt <= 0)
+            return
+        seek(startAt)
+        startAt = 0
+    }
 
     TapHandler {
         onTapped: video.isPlaying ? video.pause() : video.play()

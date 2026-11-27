@@ -1,27 +1,15 @@
 #include "WorkspaceModel.h"
 
+#include "SaveManager.h"
+
 #include <algorithm>
 #include <limits>
 
 WorkspaceModel::WorkspaceModel(QObject *parent)
     : QAbstractListModel(parent)
 {
-    // The starting components: x, y, width, height
-    m_components = {
-        QRect(0, 0, 366, 366),
-        QRect(378, 0, 177, 156),
-        QRect(567, 0, 177, 156),
-        QRect(378, 168, 366, 198),
-        QRect(0, 378, 240, 240),
-    };
-    m_atStart = m_components;
-
-    // What sits inside each component, in the same order as above: the name of a
-    // ComponentItem's .qml file, like "TextFieldItem". "" leaves it empty.
-    m_items = { "TextFieldItem", "", "", "WebViewItem", "" };
-    // None of them shows a file to start with
-    m_files = QList<QString>(m_components.size());
-    m_texts = QList<QString>(m_components.size());
+    // Starts as it was saved last time, and is saved whenever it changes (SaveManager.cpp)
+    SaveManager::instance()->watch(this);
 }
 
 int WorkspaceModel::rowCount(const QModelIndex &parent) const
@@ -36,6 +24,7 @@ QVariant WorkspaceModel::data(const QModelIndex &index, int role) const
     case ItemRole: return m_items.at(index.row());
     case FileRole: return m_files.at(index.row());
     case TextRole: return m_texts.at(index.row());
+    case ScrollRole: return m_scrolls.at(index.row());
     }
     return {};
 }
@@ -43,10 +32,11 @@ QVariant WorkspaceModel::data(const QModelIndex &index, int role) const
 // The names QML uses for each value
 QHash<int, QByteArray> WorkspaceModel::roleNames() const
 {
-    return { { AreaRole, "area" }, { ItemRole, "item" }, { FileRole, "file" }, { TextRole, "text" } };
+    return { { AreaRole, "area" }, { ItemRole, "item" }, { FileRole, "file" }, { TextRole, "text" }, { ScrollRole, "scroll" } };
 }
 
-bool WorkspaceModel::addComponent(const QString &item, const QString &file, int x, int y, const QString &text)
+bool WorkspaceModel::addComponent(const QString &item, const QString &file, int x, int y, const QString &text,
+                                  const QVariant &scroll)
 {
     const QPoint spot(x, y);
     for (const QRect &other : m_components) {
@@ -63,6 +53,7 @@ bool WorkspaceModel::addComponent(const QString &item, const QString &file, int 
     m_items.append(item);
     m_files.append(file);
     m_texts.append(text);
+    m_scrolls.append(scroll);
     endInsertRows();
     emit boundsChanged();
     return true;
@@ -75,6 +66,22 @@ void WorkspaceModel::replaceItem(int component, const QString &item, const QStri
     emit dataChanged(index(component), index(component), { ItemRole, FileRole });
 }
 
+void WorkspaceModel::setText(int component, const QString &text)
+{
+    if (m_texts.at(component) == text)
+        return;
+    m_texts[component] = text;
+    emit dataChanged(index(component), index(component), { TextRole });
+}
+
+void WorkspaceModel::setScroll(int component, const QVariant &scroll)
+{
+    if (m_scrolls.at(component) == scroll)
+        return;
+    m_scrolls[component] = scroll;
+    emit dataChanged(index(component), index(component), { ScrollRole });
+}
+
 void WorkspaceModel::removeComponent(int component)
 {
     beginRemoveRows({}, component, component);
@@ -82,6 +89,7 @@ void WorkspaceModel::removeComponent(int component)
     m_items.removeAt(component);
     m_files.removeAt(component);
     m_texts.removeAt(component);
+    m_scrolls.removeAt(component);
     endRemoveRows();
     emit boundsChanged();
 }

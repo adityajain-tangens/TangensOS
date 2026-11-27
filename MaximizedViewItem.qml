@@ -24,28 +24,34 @@ Item {
     // True while they shrink back
     property bool shrinking: false
 
-    // Each shown component's width divided by its height, in the same order as frames
+    // The shape (width divided by height) of what's inside each shown component, in the same order as frames
     property list<real> aspects
 
     // Where each shown component sits once grown, in the same order as frames: in rows of two, the last one
     // in the middle when there's an odd number. All rows are as tall as each other, as tall as fits 80% of
-    // the window's width and 90% of its height, with 20 pixels between them.
+    // the window's width and 90% of its height, with 20 pixels between them. Each keeps the shape of
+    // what's inside, with its top bar and margins added around it.
     readonly property list<rect> layout: {
         const gap = 20
+        const chrome = frames.length > 0 ? frames[0].chrome : Qt.size(0, 0)
         const rows = []
         for (let i = 0; i < aspects.length; i += 2)
             rows.push(aspects.slice(i, i + 2))
         const sum = (row) => row.reduce((a, b) => a + b, 0)
-        let rowHeight = (height * 0.9 - gap * (rows.length - 1)) / rows.length
+        // How tall what's inside is, in every row
+        let inside = (height * 0.9 - gap * (rows.length - 1)) / rows.length - chrome.height
         for (const row of rows)
-            rowHeight = Math.min(rowHeight, (width * 0.8 - gap * (row.length - 1)) / sum(row))
+            inside = Math.min(inside, (width * 0.8 - gap * (row.length - 1) - chrome.width * row.length) / sum(row))
+        const rowHeight = inside + chrome.height
         const top = (height - rowHeight * rows.length - gap * (rows.length - 1)) / 2
         const rects = []
         rows.forEach((row, r) => {
-            let x = (width - rowHeight * sum(row) - gap * (row.length - 1)) / 2
+            const rowWidth = inside * sum(row) + chrome.width * row.length + gap * (row.length - 1)
+            let x = (width - rowWidth) / 2
             for (const aspect of row) {
-                rects.push(Qt.rect(x, top + r * (rowHeight + gap), rowHeight * aspect, rowHeight))
-                x += rowHeight * aspect + gap
+                const frameWidth = inside * aspect + chrome.width
+                rects.push(Qt.rect(x, top + r * (rowHeight + gap), frameWidth, rowHeight))
+                x += frameWidth + gap
             }
         })
         return rects
@@ -70,8 +76,18 @@ Item {
         for (let i = 0; i < byHeight.length; i += 2)
             ordered.push(...byHeight.slice(i, i + 2).sort((a, b) => middle(a).x - middle(b).x))
         // Each keeps the shape it has now: the ones already shown even if resized, the new one its shape on the workspace
-        aspects = ordered.map(f => f.width / f.height)
+        aspects = ordered.map(f => f.contentAspect)
         frames = ordered
+        glideTo(layout)
+    }
+
+    // Gives what's inside a shown component this shape (width divided by height), here and back on the workspace
+    function reshape(frame, aspect) {
+        const changed = Array.from(aspects)
+        changed[frames.indexOf(frame)] = aspect
+        aspects = changed
+        if (!resizedFrames.includes(frame))
+            resizedFrames.push(frame)
         glideTo(layout)
     }
 
@@ -80,7 +96,7 @@ Item {
             return
         shrinking = true
         for (const frame of resizedFrames)
-            workspace.reshape(frame, frame.width / frame.height)
+            workspace.reshape(frame, frame.contentAspect)
         glideTo(frames.map(f => workspace.areaIn(f, view)))
     }
 
@@ -148,6 +164,23 @@ Item {
 
             Connections {
                 target: watcher.modelData
+                function onReshapeWanted(aspect) {
+                    if (!view.shrinking)
+                        view.reshape(watcher.modelData, aspect)
+                }
+                // Put exactly there, like after a resize by its corner
+                function onAreaWanted(area) {
+                    if (view.shrinking)
+                        return
+                    glide.stop()
+                    const frame = watcher.modelData
+                    if (!view.resizedFrames.includes(frame))
+                        view.resizedFrames.push(frame)
+                    frame.x = area.x
+                    frame.y = area.y
+                    frame.width = area.width
+                    frame.height = area.height
+                }
                 function onMovingChanged() {
                     if (watcher.modelData.moving && !view.shrinking)
                         glide.stop()
